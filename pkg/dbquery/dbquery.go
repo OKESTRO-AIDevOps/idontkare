@@ -1101,28 +1101,709 @@ func SetProjectCdOptionByUserIdAndName(user_id int, name string, cd_option strin
 
 }
 
-func GetProjectCiById(id int) (*pkgresource.DB_Project_CI, error)
+func GetProjectCiById(id int) (*pkgresource.DB_Project_CI, error) {
 
-func GetProjectCisByProjectId(project_id int) ([]pkgresource.DB_Project_CI, error)
+	var dbpci_records []pkgresource.DB_Project_CI
 
-func GetProjectCisByClusterId(cluster_id int) ([]pkgresource.DB_Project_CI, error)
+	var dbpci pkgresource.DB_Project_CI
 
-func SetProjectCi(project_id int, cluster_id int) error
+	q := `
+	
+		SELECT
+			project_id,
+			cluster_id,
+			project_ci_status,
+			project_ci_log,
+			project_ci_start,
+			project_ci_end
+		FROM
+			project_ci
+		WHERE
+			project_ci_id = ?
+	
+	`
 
-func SetProjectCiLogById(id int, ci_log string) error
+	a := []any{
+		id,
+	}
 
-func SetProjectCiEndById(id int, ci_log string) error
+	res, err := DbQuery(q, a)
 
-func GetProjectCdById(id int) (*pkgresource.DB_Project_CD, error)
+	if err != nil {
 
-func GetProjectCdsByProjectId(project_id int) ([]pkgresource.DB_Project_CD, error)
+		return nil, fmt.Errorf("failed to get project ci by id: %s", err.Error())
 
-func GetProjectCdsByClusterId(cluster_id int) ([]pkgresource.DB_Project_CD, error)
+	}
 
-func GetProjectCdsByCiId(ci_id int) ([]pkgresource.DB_Project_CD, error)
+	defer res.Close()
 
-func SetProjectCd(project_id int, cluster_id int, ci_id int) error
+	for res.Next() {
 
-func SetProjectCdLogById(id int, cd_log string) error
+		dbpci = pkgresource.DB_Project_CI{}
 
-func SetProjectCdEndById(id int, cd_log string) error
+		err = res.Scan(
+			&dbpci.ProjectId,
+			&dbpci.ClusterId,
+			&dbpci.ProjectCiStatus,
+			&dbpci.ProjectCiLog,
+			&dbpci.ProjectCiStart,
+			&dbpci.ProjectCiEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project ci by id: row: %s", err.Error())
+		}
+
+		dbpci_records = append(dbpci_records, dbpci)
+	}
+
+	rlen := len(dbpci_records)
+
+	if rlen != 1 {
+		return nil, fmt.Errorf("failed to get project ci by id: length: %d", rlen)
+	}
+
+	dbpci = dbpci_records[0]
+
+	return &dbpci, nil
+
+}
+
+func GetProjectCisByProjectId(project_id int) ([]pkgresource.DB_Project_CI, error) {
+
+	var dbpci_records []pkgresource.DB_Project_CI
+
+	var dbpci pkgresource.DB_Project_CI
+
+	q := `
+	
+		SELECT
+			project_ci_id,
+			cluster_id,
+			project_ci_status,
+			project_ci_log,
+			project_ci_start,
+			project_ci_end
+		FROM
+			project_ci
+		WHERE
+			project_id = ?
+	
+	`
+
+	a := []any{
+		project_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cis by project id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpci = pkgresource.DB_Project_CI{}
+
+		err = res.Scan(
+			&dbpci.ProjectCiId,
+			&dbpci.ClusterId,
+			&dbpci.ProjectCiStatus,
+			&dbpci.ProjectCiLog,
+			&dbpci.ProjectCiStart,
+			&dbpci.ProjectCiEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cis by project id: row: %s", err.Error())
+		}
+
+		dbpci_records = append(dbpci_records, dbpci)
+	}
+
+	return dbpci_records, nil
+
+}
+
+func GetProjectCisByClusterId(cluster_id int) ([]pkgresource.DB_Project_CI, error) {
+
+	var dbpci_records []pkgresource.DB_Project_CI
+
+	var dbpci pkgresource.DB_Project_CI
+
+	q := `
+	
+		SELECT
+			project_ci_id,
+			cluster_id,
+			project_ci_status,
+			project_ci_log,
+			project_ci_start,
+			project_ci_end
+		FROM
+			project_ci
+		WHERE
+			cluster_id = ?
+	
+	`
+
+	a := []any{
+		cluster_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cis by cluster id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpci = pkgresource.DB_Project_CI{}
+
+		err = res.Scan(
+			&dbpci.ProjectCiId,
+			&dbpci.ProjectId,
+			&dbpci.ProjectCiStatus,
+			&dbpci.ProjectCiLog,
+			&dbpci.ProjectCiStart,
+			&dbpci.ProjectCiEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cis by cluster id: row: %s", err.Error())
+		}
+
+		dbpci_records = append(dbpci_records, dbpci)
+	}
+
+	return dbpci_records, nil
+
+}
+
+func SetProjectCi(project_id int, cluster_id int) error {
+
+	q := `
+	
+		INSERT INTO 
+			project_ci(
+				project_id,
+				cluster_id,
+				project_ci_status,
+				project_ci_log,
+				project_ci_start,
+				project_ci_end
+			)
+			VALUES(
+				?,
+				?,
+				?,
+				NULL,
+				CURRENT_TIMESTAMP(3),
+				NULL
+			)
+	
+	`
+
+	a := []any{
+		project_id,
+		cluster_id,
+		pkgresource.CI_STATUS_READY,
+	}
+
+	err := DbExec(q, a)
+
+	if err != nil {
+		return fmt.Errorf("failed to set project ci: %s", err.Error())
+	}
+
+	return nil
+}
+
+func SetProjectCiLogById(id int, ci_log string) error {
+
+	check, err := GetProjectCiById(id)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project ci log by id: %s", err.Error())
+	}
+
+	if check == nil {
+
+		return fmt.Errorf("failed to set project ci log by id: not found: %d", id)
+	}
+
+	q := `
+
+		UPDATE
+			project_ci
+		SET
+			project_ci_status = ?,
+			project_ci_log = ?
+		WHERE
+			project_ci_id = ?
+	
+	
+	`
+
+	a := []any{
+		pkgresource.CI_STATUS_RUNNING,
+		ci_log,
+		check.ProjectCiId,
+	}
+
+	err = DbExec(q, a)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project ci log: %s", err.Error())
+	}
+
+	return nil
+}
+
+func SetProjectCiEndById(id int, ci_status string, ci_log string) error {
+
+	check, err := GetProjectCiById(id)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project ci end by id: %s", err.Error())
+	}
+
+	if check == nil {
+
+		return fmt.Errorf("failed to set project ci end by id: not found: %d", id)
+	}
+
+	q := `
+
+		UPDATE
+			project_ci
+		SET
+			project_ci_status = ?,
+			project_ci_log = ?,
+			project_ci_end = CURRENT_TIMESTAMP(3)
+		WHERE
+			project_ci_id = ?
+	
+	
+	`
+
+	a := []any{
+		ci_status,
+		ci_log,
+		check.ProjectCiId,
+	}
+
+	err = DbExec(q, a)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project ci end: %s", err.Error())
+	}
+
+	return nil
+
+}
+
+func GetProjectCdById(id int) (*pkgresource.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresource.DB_Project_CD
+
+	var dbpcd pkgresource.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_id,
+			cluster_id,
+			project_ci_id,
+			project_cd_status,
+			project_cd_log,
+			project_cd_start,
+			project_cd_end
+		FROM
+			project_cd
+		WHERE
+			project_cd_id = ?
+	
+	`
+
+	a := []any{
+		id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cd by id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresource.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectId,
+			&dbpcd.ClusterId,
+			&dbpcd.ProjectCiId,
+			&dbpcd.ProjectCdStatus,
+			&dbpcd.ProjectCdLog,
+			&dbpcd.ProjectCdStart,
+			&dbpcd.ProjectCdEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cd by id: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	rlen := len(dbpcd_records)
+
+	if rlen != 1 {
+		return nil, fmt.Errorf("failed to get project cd by id: length: %d", rlen)
+	}
+
+	dbpcd = dbpcd_records[0]
+
+	return &dbpcd, nil
+}
+
+func GetProjectCdsByProjectId(project_id int) ([]pkgresource.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresource.DB_Project_CD
+
+	var dbpcd pkgresource.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_cd_id,
+			cluster_id,
+			project_ci_id,
+			project_cd_status,
+			project_cd_log,
+			project_cd_start,
+			project_cd_end
+		FROM
+			project_cd
+		WHERE
+			project_id = ?
+	
+	`
+
+	a := []any{
+		project_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cds by project id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresource.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectCdId,
+			&dbpcd.ClusterId,
+			&dbpcd.ProjectCiId,
+			&dbpcd.ProjectCdStatus,
+			&dbpcd.ProjectCdLog,
+			&dbpcd.ProjectCdStart,
+			&dbpcd.ProjectCdEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cds by project id: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	return dbpcd_records, nil
+
+}
+
+func GetProjectCdsByClusterId(cluster_id int) ([]pkgresource.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresource.DB_Project_CD
+
+	var dbpcd pkgresource.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_cd_id,
+			project_id,
+			project_ci_id,
+			project_cd_status,
+			project_cd_log,
+			project_cd_start,
+			project_cd_end
+		FROM
+			project_cd
+		WHERE
+			cluster_id = ?
+	
+	`
+
+	a := []any{
+		cluster_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cds by cluster id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresource.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectCdId,
+			&dbpcd.ProjectId,
+			&dbpcd.ProjectCiId,
+			&dbpcd.ProjectCdStatus,
+			&dbpcd.ProjectCdLog,
+			&dbpcd.ProjectCdStart,
+			&dbpcd.ProjectCdEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cds by cluster id: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	return dbpcd_records, nil
+
+}
+
+func GetProjectCdsByCiId(ci_id int) ([]pkgresource.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresource.DB_Project_CD
+
+	var dbpcd pkgresource.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_cd_id,
+			project_id,
+			cluster_id,
+			project_cd_status,
+			project_cd_log,
+			project_cd_start,
+			project_cd_end
+		FROM
+			project_ci
+		WHERE
+			project_ci_id = ?
+	
+	`
+
+	a := []any{
+		ci_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cds by project ci id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresource.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectCdId,
+			&dbpcd.ProjectId,
+			&dbpcd.ClusterId,
+			&dbpcd.ProjectCdStatus,
+			&dbpcd.ProjectCdLog,
+			&dbpcd.ProjectCdStart,
+			&dbpcd.ProjectCdEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cds by project ci id: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	return dbpcd_records, nil
+}
+
+func SetProjectCd(project_id int, cluster_id int, ci_id int) error {
+
+	q := `
+	
+		INSERT INTO 
+			project_cd(
+				project_id,
+				cluster_id,
+				project_ci_id,
+				project_ci_status,
+				project_ci_log,
+				project_ci_start,
+				project_ci_end
+			)
+			VALUES(
+				?,
+				?,
+				?,
+				?,
+				NULL,
+				CURRENT_TIMESTAMP(3),
+				NULL
+			)
+	
+	`
+
+	a := []any{
+		project_id,
+		cluster_id,
+		ci_id,
+		pkgresource.CI_STATUS_READY,
+	}
+
+	err := DbExec(q, a)
+
+	if err != nil {
+		return fmt.Errorf("failed to set project cd: %s", err.Error())
+	}
+
+	return nil
+
+}
+
+func SetProjectCdLogById(id int, cd_log string) error {
+
+	check, err := GetProjectCdById(id)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project cd log by id: %s", err.Error())
+	}
+
+	if check == nil {
+
+		return fmt.Errorf("failed to set project cd log by id: not found: %d", id)
+	}
+
+	q := `
+
+		UPDATE
+			project_cd
+		SET
+			project_cd_status = ?,
+			project_cd_log = ?
+		WHERE
+			project_cd_id = ?
+	
+	
+	`
+
+	a := []any{
+		pkgresource.CI_STATUS_RUNNING,
+		cd_log,
+		check.ProjectCdId,
+	}
+
+	err = DbExec(q, a)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project cd log: %s", err.Error())
+	}
+
+	return nil
+}
+
+func SetProjectCdEndById(id int, cd_status string, cd_log string) error {
+
+	check, err := GetProjectCdById(id)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project cd end by id: %s", err.Error())
+	}
+
+	if check == nil {
+
+		return fmt.Errorf("failed to set project cd end by id: not found: %d", id)
+	}
+
+	q := `
+
+		UPDATE
+			project_cd
+		SET
+			project_cd_status = ?,
+			project_cd_log = ?,
+			project_cd_end = CURRENT_TIMESTAMP(3)
+		WHERE
+			project_cd_id = ?
+	
+	
+	`
+
+	a := []any{
+		cd_status,
+		cd_log,
+		check.ProjectCdId,
+	}
+
+	err = DbExec(q, a)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set project cd end: %s", err.Error())
+	}
+
+	return nil
+
+}

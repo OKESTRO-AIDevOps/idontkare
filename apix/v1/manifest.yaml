@@ -1,0 +1,168 @@
+main:
+
+  - kind: client.request
+    path: /user/set
+    head:
+      help:
+        name: "user name"
+        pass: "user pass"
+    body:
+      name: required
+      pass: required
+      
+
+  - kind: client.request 
+    path: /cluster/set
+    head:
+      help:
+        username: "user name"
+        name: "cluster name"
+    body:
+      username: required
+      name: required
+
+  - kind: client.request
+    path: /project/set
+    head:
+      help:
+        username: "user name"
+        name: "project name"
+        git: "git address"
+        gitid: "git id"
+        gitpw: "got password"
+        reg: "registry address"
+        regid: "registry id"
+        regpw: "registry password"
+    body:
+      username: required
+      name: required
+      git: required
+      gitid: required
+      gitpw: required
+      reg: required
+      regid: required
+      regpw: required
+
+  - kind: client.request
+    path: /project/ci/option/set
+    head:
+      help:
+        username: "user name"
+        name: "project name"
+        path: "ci option file path"
+    body:
+      username: required
+      name: required
+      path: required 
+
+  - kind: client.request
+    path: /project/cd/option/set
+    head:
+      help:
+        username: "user name"
+        name: "project name"
+        path: "cd option file path"
+    body:
+      username: required
+      name: required
+      path: required 
+
+  - kind: agent.request
+    path: /cluster/connect
+    head:
+      help:
+        name: "cluster name"
+        username: "user name"
+    body:
+      name: required
+      username: required
+
+  - kind: agent.push
+    path: /cluster/ci/ready
+    head:
+      help:
+        name: "cluster name"
+    body:
+      name: required
+
+  - kind: agent.push
+    path: /cluster/cd/ready
+    head:
+      help:
+        name: "cluster name"
+    body:
+      name: required
+
+  - kind: agent.push
+    path: /project/ci/log
+    head:
+      help:
+        name: "cluster name"
+        status: "ci status"
+        log: "log text contents"
+    body:
+      name: required
+      status: required
+      log: required
+
+  - kind: agent.push
+    path: /project/cd/log
+    head:
+      help:
+        name: "cluster name"
+        status: "cd status"
+        log: "log text contents"
+    body:
+      name: required
+      status: required
+      log: required
+
+  - kind: server.write
+    path: /project/cluster/ci/alloc
+    head:
+      help:
+        id: "project id"
+        git: "git address"
+        gitid: "git id"
+        gitpw: "git password"
+        reg: "registry address"
+        regid: "registry id"
+        regpw: "registry pw"
+        cioption: "project ci option text"
+        projectciid: "project ci id"
+    body:
+      id: required
+      git: required
+      gitid: required
+      gitpw: required
+      reg: required
+      regid: required
+      regpw: required
+      cioption: required
+      projectciid: required
+
+  - kind: server.write
+    path: /project/cluster/cd/alloc
+    head:
+      help:
+        id: "project id"
+        git: "git address"
+        gitid: "git id"
+        gitpw: "git password"
+        reg: "registry address"
+        regid: "registry id"
+        regpw: "registry pw"
+        cdoption: "project cd option text"
+        projectcdid: "project cd id"
+        projectciid: "project ci id"
+    body:
+      id: required
+      git: required
+      gitid: required
+      gitpw: required
+      reg: required
+      regid: required
+      regpw: required
+      cdoption: required
+      projectcdid: required
+      projectciid: required
