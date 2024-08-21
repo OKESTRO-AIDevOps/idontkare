@@ -1,0 +1,3 @@
+*.out
+config.json
+db/data
