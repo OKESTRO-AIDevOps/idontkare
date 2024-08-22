@@ -1,0 +1,11 @@
+apix_version: 1
+listen_addr: "0.0.0.0"
+listen_port: "1337"
+client_path: "/idontkare/client"
+agent_path: "/idontkare/agent"
+client_timeout_ms: 10000
+agent_timeout_ms: 5000
+db_addr: "localhost:3306"
+db_name: "idkdb"
+db_id: "idkdb"
+db_pw: "universalpassword"

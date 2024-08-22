@@ -6,18 +6,19 @@ import (
 	"log"
 	"time"
 
-	pkgresource "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource"
+	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
+	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var DB *sql.DB
 
-func DbEstablish(db_id string, db_pw string, db_host string, db_name string) error {
+func DbEstablish(db_id string, db_pw string, db_addr string, db_name string) error {
 
 	var err error
 
-	db_info := fmt.Sprintf("%s:%s@tcp(%s)/%s", db_id, db_pw, db_host, db_name)
+	db_info := fmt.Sprintf("%s:%s@tcp(%s)/%s", db_id, db_pw, db_addr, db_name)
 
 	DB, err = sql.Open("mysql", db_info)
 
@@ -73,11 +74,11 @@ func DbExec(query string, args []any) error {
 
 }
 
-func GetRoot() (*pkgresource.DB_Root, error) {
+func GetRoot() (*pkgresourcedb.DB_Root, error) {
 
-	var dbroot_records []pkgresource.DB_Root
+	var dbroot_records []pkgresourcedb.DB_Root
 
-	var dbroot pkgresource.DB_Root
+	var dbroot pkgresourcedb.DB_Root
 
 	q := `
 	
@@ -107,7 +108,7 @@ func GetRoot() (*pkgresource.DB_Root, error) {
 
 	for res.Next() {
 
-		dbroot = pkgresource.DB_Root{}
+		dbroot = pkgresourcedb.DB_Root{}
 
 		err = res.Scan(
 			&dbroot.RootId,
@@ -137,11 +138,11 @@ func GetRoot() (*pkgresource.DB_Root, error) {
 	return &dbroot, nil
 }
 
-func GetUserById(id int) (*pkgresource.DB_User, error) {
+func GetUserById(id int) (*pkgresourcedb.DB_User, error) {
 
-	var dbuser_records []pkgresource.DB_User
+	var dbuser_records []pkgresourcedb.DB_User
 
-	var dbuser pkgresource.DB_User
+	var dbuser pkgresourcedb.DB_User
 
 	q := `
 	
@@ -171,7 +172,7 @@ func GetUserById(id int) (*pkgresource.DB_User, error) {
 
 	for res.Next() {
 
-		dbuser := pkgresource.DB_User{}
+		dbuser := pkgresourcedb.DB_User{}
 
 		err = res.Scan(
 			&dbuser.UserName,
@@ -198,11 +199,11 @@ func GetUserById(id int) (*pkgresource.DB_User, error) {
 
 }
 
-func GetUserByName(name string) (*pkgresource.DB_User, error) {
+func GetUserByName(name string) (*pkgresourcedb.DB_User, error) {
 
-	var dbuser_records []pkgresource.DB_User
+	var dbuser_records []pkgresourcedb.DB_User
 
-	var dbuser pkgresource.DB_User
+	var dbuser pkgresourcedb.DB_User
 
 	q := `
 	
@@ -232,7 +233,7 @@ func GetUserByName(name string) (*pkgresource.DB_User, error) {
 
 	for res.Next() {
 
-		dbuser := pkgresource.DB_User{}
+		dbuser := pkgresourcedb.DB_User{}
 
 		err = res.Scan(
 			&dbuser.UserId,
@@ -322,11 +323,11 @@ func SetUser(name string, pass string) error {
 	return nil
 }
 
-func GetClusterById(id int) (*pkgresource.DB_Cluster, error) {
+func GetClusterById(id int) (*pkgresourcedb.DB_Cluster, error) {
 
-	var dbcluster_records []pkgresource.DB_Cluster
+	var dbcluster_records []pkgresourcedb.DB_Cluster
 
-	var dbcluster pkgresource.DB_Cluster
+	var dbcluster pkgresourcedb.DB_Cluster
 
 	q := `
 	
@@ -359,7 +360,7 @@ func GetClusterById(id int) (*pkgresource.DB_Cluster, error) {
 
 	for res.Next() {
 
-		dbcluster = pkgresource.DB_Cluster{}
+		dbcluster = pkgresourcedb.DB_Cluster{}
 
 		err = res.Scan(
 			&dbcluster.UserId,
@@ -388,11 +389,11 @@ func GetClusterById(id int) (*pkgresource.DB_Cluster, error) {
 	return &dbcluster, nil
 }
 
-func GetClustersByUserId(user_id int) ([]pkgresource.DB_Cluster, error) {
+func GetClustersByUserId(user_id int) ([]pkgresourcedb.DB_Cluster, error) {
 
-	var dbcluster_records []pkgresource.DB_Cluster
+	var dbcluster_records []pkgresourcedb.DB_Cluster
 
-	var dbcluster pkgresource.DB_Cluster
+	var dbcluster pkgresourcedb.DB_Cluster
 
 	q := `
 	
@@ -425,7 +426,7 @@ func GetClustersByUserId(user_id int) ([]pkgresource.DB_Cluster, error) {
 
 	for res.Next() {
 
-		dbcluster = pkgresource.DB_Cluster{}
+		dbcluster = pkgresourcedb.DB_Cluster{}
 
 		err = res.Scan(
 			&dbcluster.ClusterId,
@@ -609,11 +610,11 @@ func SetClusterConnectedByUserIdAndName(user_id int, name string, connected int,
 
 }
 
-func GetProjectById(id int) (*pkgresource.DB_Project, error) {
+func GetProjectById(id int) (*pkgresourcedb.DB_Project, error) {
 
-	var dbproject_records []pkgresource.DB_Project
+	var dbproject_records []pkgresourcedb.DB_Project
 
-	var dbproject pkgresource.DB_Project
+	var dbproject pkgresourcedb.DB_Project
 
 	q := `
 	
@@ -652,7 +653,7 @@ func GetProjectById(id int) (*pkgresource.DB_Project, error) {
 
 	for res.Next() {
 
-		dbproject = pkgresource.DB_Project{}
+		dbproject = pkgresourcedb.DB_Project{}
 
 		err = res.Scan(
 			&dbproject.UserId,
@@ -688,11 +689,11 @@ func GetProjectById(id int) (*pkgresource.DB_Project, error) {
 
 }
 
-func GetProjectsByUserId(user_id int) ([]pkgresource.DB_Project, error) {
+func GetProjectsByUserId(user_id int) ([]pkgresourcedb.DB_Project, error) {
 
-	var dbproject_records []pkgresource.DB_Project
+	var dbproject_records []pkgresourcedb.DB_Project
 
-	var dbproject pkgresource.DB_Project
+	var dbproject pkgresourcedb.DB_Project
 
 	q := `
 	
@@ -731,7 +732,7 @@ func GetProjectsByUserId(user_id int) ([]pkgresource.DB_Project, error) {
 
 	for res.Next() {
 
-		dbproject = pkgresource.DB_Project{}
+		dbproject = pkgresourcedb.DB_Project{}
 
 		err = res.Scan(
 			&dbproject.UserId,
@@ -1101,11 +1102,11 @@ func SetProjectCdOptionByUserIdAndName(user_id int, name string, cd_option strin
 
 }
 
-func GetProjectCiById(id int) (*pkgresource.DB_Project_CI, error) {
+func GetProjectCiById(id int) (*pkgresourcedb.DB_Project_CI, error) {
 
-	var dbpci_records []pkgresource.DB_Project_CI
+	var dbpci_records []pkgresourcedb.DB_Project_CI
 
-	var dbpci pkgresource.DB_Project_CI
+	var dbpci pkgresourcedb.DB_Project_CI
 
 	q := `
 	
@@ -1139,7 +1140,7 @@ func GetProjectCiById(id int) (*pkgresource.DB_Project_CI, error) {
 
 	for res.Next() {
 
-		dbpci = pkgresource.DB_Project_CI{}
+		dbpci = pkgresourcedb.DB_Project_CI{}
 
 		err = res.Scan(
 			&dbpci.ProjectId,
@@ -1170,11 +1171,11 @@ func GetProjectCiById(id int) (*pkgresource.DB_Project_CI, error) {
 
 }
 
-func GetProjectCisByProjectId(project_id int) ([]pkgresource.DB_Project_CI, error) {
+func GetProjectCisByProjectId(project_id int) ([]pkgresourcedb.DB_Project_CI, error) {
 
-	var dbpci_records []pkgresource.DB_Project_CI
+	var dbpci_records []pkgresourcedb.DB_Project_CI
 
-	var dbpci pkgresource.DB_Project_CI
+	var dbpci pkgresourcedb.DB_Project_CI
 
 	q := `
 	
@@ -1208,7 +1209,7 @@ func GetProjectCisByProjectId(project_id int) ([]pkgresource.DB_Project_CI, erro
 
 	for res.Next() {
 
-		dbpci = pkgresource.DB_Project_CI{}
+		dbpci = pkgresourcedb.DB_Project_CI{}
 
 		err = res.Scan(
 			&dbpci.ProjectCiId,
@@ -1231,11 +1232,11 @@ func GetProjectCisByProjectId(project_id int) ([]pkgresource.DB_Project_CI, erro
 
 }
 
-func GetProjectCisByClusterId(cluster_id int) ([]pkgresource.DB_Project_CI, error) {
+func GetProjectCisByClusterId(cluster_id int) ([]pkgresourcedb.DB_Project_CI, error) {
 
-	var dbpci_records []pkgresource.DB_Project_CI
+	var dbpci_records []pkgresourcedb.DB_Project_CI
 
-	var dbpci pkgresource.DB_Project_CI
+	var dbpci pkgresourcedb.DB_Project_CI
 
 	q := `
 	
@@ -1269,7 +1270,7 @@ func GetProjectCisByClusterId(cluster_id int) ([]pkgresource.DB_Project_CI, erro
 
 	for res.Next() {
 
-		dbpci = pkgresource.DB_Project_CI{}
+		dbpci = pkgresourcedb.DB_Project_CI{}
 
 		err = res.Scan(
 			&dbpci.ProjectCiId,
@@ -1319,7 +1320,7 @@ func SetProjectCi(project_id int, cluster_id int) error {
 	a := []any{
 		project_id,
 		cluster_id,
-		pkgresource.CI_STATUS_READY,
+		pkgresourceci.STATUS_READY,
 	}
 
 	err := DbExec(q, a)
@@ -1359,7 +1360,7 @@ func SetProjectCiLogById(id int, ci_log string) error {
 	`
 
 	a := []any{
-		pkgresource.CI_STATUS_RUNNING,
+		pkgresourceci.STATUS_RUNNING,
 		ci_log,
 		check.ProjectCiId,
 	}
@@ -1419,11 +1420,11 @@ func SetProjectCiEndById(id int, ci_status string, ci_log string) error {
 
 }
 
-func GetProjectCdById(id int) (*pkgresource.DB_Project_CD, error) {
+func GetProjectCdById(id int) (*pkgresourcedb.DB_Project_CD, error) {
 
-	var dbpcd_records []pkgresource.DB_Project_CD
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
 
-	var dbpcd pkgresource.DB_Project_CD
+	var dbpcd pkgresourcedb.DB_Project_CD
 
 	q := `
 	
@@ -1458,7 +1459,7 @@ func GetProjectCdById(id int) (*pkgresource.DB_Project_CD, error) {
 
 	for res.Next() {
 
-		dbpcd = pkgresource.DB_Project_CD{}
+		dbpcd = pkgresourcedb.DB_Project_CD{}
 
 		err = res.Scan(
 			&dbpcd.ProjectId,
@@ -1489,11 +1490,11 @@ func GetProjectCdById(id int) (*pkgresource.DB_Project_CD, error) {
 	return &dbpcd, nil
 }
 
-func GetProjectCdsByProjectId(project_id int) ([]pkgresource.DB_Project_CD, error) {
+func GetProjectCdsByProjectId(project_id int) ([]pkgresourcedb.DB_Project_CD, error) {
 
-	var dbpcd_records []pkgresource.DB_Project_CD
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
 
-	var dbpcd pkgresource.DB_Project_CD
+	var dbpcd pkgresourcedb.DB_Project_CD
 
 	q := `
 	
@@ -1528,7 +1529,7 @@ func GetProjectCdsByProjectId(project_id int) ([]pkgresource.DB_Project_CD, erro
 
 	for res.Next() {
 
-		dbpcd = pkgresource.DB_Project_CD{}
+		dbpcd = pkgresourcedb.DB_Project_CD{}
 
 		err = res.Scan(
 			&dbpcd.ProjectCdId,
@@ -1552,11 +1553,11 @@ func GetProjectCdsByProjectId(project_id int) ([]pkgresource.DB_Project_CD, erro
 
 }
 
-func GetProjectCdsByClusterId(cluster_id int) ([]pkgresource.DB_Project_CD, error) {
+func GetProjectCdsByClusterId(cluster_id int) ([]pkgresourcedb.DB_Project_CD, error) {
 
-	var dbpcd_records []pkgresource.DB_Project_CD
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
 
-	var dbpcd pkgresource.DB_Project_CD
+	var dbpcd pkgresourcedb.DB_Project_CD
 
 	q := `
 	
@@ -1591,7 +1592,7 @@ func GetProjectCdsByClusterId(cluster_id int) ([]pkgresource.DB_Project_CD, erro
 
 	for res.Next() {
 
-		dbpcd = pkgresource.DB_Project_CD{}
+		dbpcd = pkgresourcedb.DB_Project_CD{}
 
 		err = res.Scan(
 			&dbpcd.ProjectCdId,
@@ -1615,11 +1616,11 @@ func GetProjectCdsByClusterId(cluster_id int) ([]pkgresource.DB_Project_CD, erro
 
 }
 
-func GetProjectCdsByCiId(ci_id int) ([]pkgresource.DB_Project_CD, error) {
+func GetProjectCdsByCiId(ci_id int) ([]pkgresourcedb.DB_Project_CD, error) {
 
-	var dbpcd_records []pkgresource.DB_Project_CD
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
 
-	var dbpcd pkgresource.DB_Project_CD
+	var dbpcd pkgresourcedb.DB_Project_CD
 
 	q := `
 	
@@ -1654,7 +1655,7 @@ func GetProjectCdsByCiId(ci_id int) ([]pkgresource.DB_Project_CD, error) {
 
 	for res.Next() {
 
-		dbpcd = pkgresource.DB_Project_CD{}
+		dbpcd = pkgresourcedb.DB_Project_CD{}
 
 		err = res.Scan(
 			&dbpcd.ProjectCdId,
@@ -1707,7 +1708,7 @@ func SetProjectCd(project_id int, cluster_id int, ci_id int) error {
 		project_id,
 		cluster_id,
 		ci_id,
-		pkgresource.CI_STATUS_READY,
+		pkgresourceci.STATUS_READY,
 	}
 
 	err := DbExec(q, a)
@@ -1748,7 +1749,7 @@ func SetProjectCdLogById(id int, cd_log string) error {
 	`
 
 	a := []any{
-		pkgresource.CI_STATUS_RUNNING,
+		pkgresourceci.STATUS_RUNNING,
 		cd_log,
 		check.ProjectCdId,
 	}

@@ -1,0 +1,4 @@
+apix_version: 1
+connect_url: "wss://localhost:1337/idontkare/client"
+socket_mode: false
+timeout_ms: 10000

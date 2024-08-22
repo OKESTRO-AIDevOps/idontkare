@@ -33,7 +33,7 @@ func apix_get_then_verify() {
 
 	yb, _ := yaml.Marshal(main_no_head)
 
-	_, err = pkgapix.V1GetMain(yb, mani)
+	_, err = pkgapix.V1GetMainByByte(yb, mani)
 
 	if err != nil {
 
@@ -58,7 +58,7 @@ func apix_get_then_verify() {
 
 	yb, _ = yaml.Marshal(main_body_invalid1)
 
-	_, err = pkgapix.V1GetMain(yb, mani)
+	_, err = pkgapix.V1GetMainByByte(yb, mani)
 
 	if err != nil {
 
@@ -84,7 +84,7 @@ func apix_get_then_verify() {
 
 	yb, _ = yaml.Marshal(main_body_invalid2)
 
-	_, err = pkgapix.V1GetMain(yb, mani)
+	_, err = pkgapix.V1GetMainByByte(yb, mani)
 
 	if err != nil {
 
@@ -110,7 +110,7 @@ func apix_get_then_verify() {
 
 	yb, _ = yaml.Marshal(main_path_invalid)
 
-	_, err = pkgapix.V1GetMain(yb, mani)
+	_, err = pkgapix.V1GetMainByByte(yb, mani)
 
 	if err != nil {
 
@@ -125,8 +125,92 @@ func apix_get_then_verify() {
 
 }
 
+func apix_get_main_from_args() {
+
+	mani, err := pkgapix.V1GetManifest()
+
+	if err != nil {
+
+		fmt.Println(err.Error())
+
+		return
+
+	}
+
+	kind := pkgresourceapix.V1KindAgentRequest
+
+	args := []string{
+		"cluster",
+		"connect",
+		"--name",
+		"hello",
+		"--username",
+		"world",
+	}
+
+	_, err = pkgapix.V1GetMainFromArgs(kind, args, mani)
+
+	if err != nil {
+		fmt.Printf("failed: get main from args: %s\n", err.Error())
+
+		return
+	} else {
+
+		fmt.Printf("success: get main from args\n")
+	}
+
+	kind = pkgresourceapix.V1KindClientRequest
+
+	args = []string{
+		"cluster",
+		"ci",
+		"ready",
+		"--name",
+		"wrong",
+	}
+
+	_, err = pkgapix.V1GetMainFromArgs(kind, args, mani)
+
+	if err != nil {
+
+		fmt.Printf("success: wrong kind and path: %s\n", err.Error())
+
+	} else {
+
+		fmt.Printf("failed: wrong kind and path\n")
+
+		return
+	}
+
+	kind = pkgresourceapix.V1KindClientRequest
+
+	args = []string{
+
+		"user",
+		"set",
+		"--name",
+		"--pass",
+		"lllll",
+	}
+
+	_, err = pkgapix.V1GetMainFromArgs(kind, args, mani)
+
+	if err != nil {
+		fmt.Printf("success: imperfect arguments: %s\n", err.Error())
+
+	} else {
+
+		fmt.Printf("failed: imperfect arguments\n")
+
+		return
+	}
+
+}
+
 func main() {
 
 	apix_get_then_verify()
+
+	apix_get_main_from_args()
 
 }

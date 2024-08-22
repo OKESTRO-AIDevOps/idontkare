@@ -85,4 +85,18 @@ CREATE TABLE project_cd (
     PRIMARY KEY (project_cd_id)
 );
 
+INSERT INTO 
+    root (
+        root_name,
+        root_ca_crt_path,
+        root_ca_priv_path,
+        root_server_crt_path
+    )
+    VALUES(
+        "idk-client",
+        "cert-server/ca.pem",
+        "cert-server/priv.pem",
+        "cert-server/cert.pem"
+    );
+
 COMMIT;

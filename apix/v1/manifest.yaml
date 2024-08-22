@@ -1,5 +1,13 @@
 main:
 
+  - kind: client.request.priv
+    path: /connect
+    head:
+      help:
+        cert: "client certificate text"
+    body:
+      cert: required
+
   - kind: client.request
     path: /user/set
     head:
@@ -76,6 +84,14 @@ main:
     body:
       name: required
       username: required
+
+  - kind: agent.request.priv
+    path: /cluster/connect/challenge
+    head:
+      help:
+        chaldata: "challenge data"
+    body:
+      chaldata: required
 
   - kind: agent.push
     path: /cluster/ci/ready
