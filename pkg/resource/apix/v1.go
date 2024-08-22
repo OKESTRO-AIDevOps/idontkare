@@ -1,10 +1,12 @@
 package apix
 
 const (
-	V1KindClientRequest string = "client.request"
-	V1KindAgentRequest  string = "agent.request"
-	V1KindAgentPush     string = "agent.push"
-	V1KindServerWrite   string = "server.write"
+	V1KindClientRequest     string = "client.request"
+	V1KindClientRequestPriv string = "client.request.priv"
+	V1KindAgentRequest      string = "agent.request"
+	V1KindAgentRequestPriv  string = "agent.request.priv"
+	V1KindAgentPush         string = "agent.push"
+	V1KindServerWrite       string = "server.write"
 )
 
 type V1Manifest struct {
@@ -25,3 +27,7 @@ type V1Head struct {
 type V1Help map[string]string
 
 type V1Body map[string]string
+
+type V1ResultData struct {
+	Output string `yaml:"output"`
+}
