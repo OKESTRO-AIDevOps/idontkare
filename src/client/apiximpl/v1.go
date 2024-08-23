@@ -2,9 +2,12 @@ package apiximpl
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
+	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
+	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
 	pkgresourcecomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/comm"
 	"github.com/gorilla/websocket"
 	"gopkg.in/yaml.v3"
@@ -12,6 +15,67 @@ import (
 
 var V1TIMEOUT_MS int = 5000
 var interval_ms int = 10
+
+func V1ClientRequestCtl(v1main *pkgresourceapix.V1Main, c *websocket.Conn) (*pkgresourceapix.V1ResultData, error) {
+
+	route := v1main.Path
+
+	switch route {
+
+	case "/project/ci/option/set":
+
+		cipath := v1main.Body["path"]
+
+		cioption := pkgresourceci.CiOption{}
+
+		file_b, err := os.ReadFile(cipath)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to read file: %s: %s", route, cipath)
+		}
+
+		err = yaml.Unmarshal(file_b, &cioption)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to unmarshal: %s: %s", route, err.Error())
+		}
+
+		v1main.Body["path"] = string(file_b)
+
+	case "/project/cd/option/set":
+
+		cdpath := v1main.Body["path"]
+
+		cdoption := pkgresourcecd.CdOption{}
+
+		file_b, err := os.ReadFile(cdpath)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to read file: %s: %s", route, cdpath)
+		}
+
+		err = yaml.Unmarshal(file_b, &cdoption)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to unmarshal: %s: %s", route, err.Error())
+		}
+
+		v1main.Body["path"] = string(file_b)
+	}
+
+	resp, err := V1RoundTrip(v1main, c)
+
+	if err != nil {
+
+		return resp, err
+	}
+
+	return resp, nil
+}
 
 func V1RoundTrip(v1main *pkgresourceapix.V1Main, c *websocket.Conn) (*pkgresourceapix.V1ResultData, error) {
 

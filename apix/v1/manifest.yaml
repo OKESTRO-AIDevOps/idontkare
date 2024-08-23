@@ -11,9 +11,11 @@ main:
   - kind: client.request
     path: /user/set
     head:
+      from-file: optional
       help:
         name: "user name"
         pass: "user pass"
+        from-file: "get all body from file"
     body:
       name: required
       pass: required
@@ -32,6 +34,7 @@ main:
   - kind: client.request
     path: /project/set
     head:
+      from-file: optional
       help:
         username: "user name"
         name: "project name"
@@ -41,6 +44,7 @@ main:
         reg: "registry address"
         regid: "registry id"
         regpw: "registry password"
+        from-file: "get all args from file"
     body:
       username: required
       name: required

@@ -190,7 +190,7 @@ func GetUserById(id int) (*pkgresourcedb.DB_User, error) {
 	rlen := len(dbuser_records)
 
 	if rlen != 1 {
-		return nil, fmt.Errorf("failed to get user: length: %d", rlen)
+		return nil, nil
 	}
 
 	dbuser = dbuser_records[0]
@@ -251,7 +251,7 @@ func GetUserByName(name string) (*pkgresourcedb.DB_User, error) {
 	rlen := len(dbuser_records)
 
 	if rlen != 1 {
-		return nil, fmt.Errorf("failed to get user: length: %d", rlen)
+		return nil, nil
 	}
 
 	dbuser = dbuser_records[0]
@@ -264,6 +264,7 @@ func SetUser(name string, pass string) error {
 	check, err := GetUserByName(name)
 
 	if err != nil {
+
 		return fmt.Errorf("set user: %s", err.Error())
 	}
 
@@ -381,7 +382,7 @@ func GetClusterById(id int) (*pkgresourcedb.DB_Cluster, error) {
 	rlen := len(dbcluster_records)
 
 	if rlen != 1 {
-		return nil, fmt.Errorf("failed to get cluster by id: length: %d", rlen)
+		return nil, nil
 	}
 
 	dbcluster = dbcluster_records[0]
@@ -680,7 +681,7 @@ func GetProjectById(id int) (*pkgresourcedb.DB_Project, error) {
 	rlen := len(dbproject_records)
 
 	if rlen != 1 {
-		return nil, fmt.Errorf("failed to get project by id: length: %d", rlen)
+		return nil, nil
 	}
 
 	dbproject = dbproject_records[0]
