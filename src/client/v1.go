@@ -34,7 +34,7 @@ func V1Connect(connect_url string, mani *pkgresourceapix.V1Manifest) (*websocket
 
 	if !okay {
 
-		return nil, fmt.Errorf("failed to connect: add ca: %s", err.Error())
+		return nil, fmt.Errorf("failed to connect: add ca")
 	}
 
 	file_cert, err := os.ReadFile("cert-client/cert.pem")
@@ -49,7 +49,7 @@ func V1Connect(connect_url string, mani *pkgresourceapix.V1Manifest) (*websocket
 
 	v1mainConnectBody["cert"] = file_cert_str
 
-	v1mainConnect, err := pkgapix.V1GetMainTemplateByAddress(pkgresourceapix.V1KindClientRequestPriv, "/connect", mani)
+	v1mainConnect, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindClientRequestPriv, "/connect", mani)
 
 	if err != nil {
 
@@ -70,7 +70,7 @@ func V1Connect(connect_url string, mani *pkgresourceapix.V1Manifest) (*websocket
 		return nil, fmt.Errorf("failed to connect: dial: %s", err.Error())
 	}
 
-	_, err = apiximpl.V1RoundTrip(v1mainConnect, c)
+	_, err = apiximpl.V1ClientRequestCtl(v1mainConnect, c)
 
 	if err != nil {
 
@@ -87,7 +87,7 @@ func V1RunOnce(connect_url string) (string, error) {
 
 	if len(os.Args) < 2 {
 
-		return "", fmt.Errorf("argc too short: %d\n", len(os.Args))
+		return "", fmt.Errorf("argc too short: %d", len(os.Args))
 
 	}
 
@@ -111,7 +111,7 @@ func V1RunOnce(connect_url string) (string, error) {
 
 	conn, err := V1Connect(connect_url, manifest)
 
-	resultData, err := clientapiximpl.V1RoundTrip(v1main, conn)
+	resultData, err := clientapiximpl.V1ClientRequestCtl(v1main, conn)
 
 	if err != nil {
 
@@ -129,4 +129,6 @@ func V1RunOnce(connect_url string) (string, error) {
 
 }
 
-func V1Run(connect_url string, socket_addr string) error
+func V1Run(connect_url string, socket_addr string) error {
+	return nil
+}

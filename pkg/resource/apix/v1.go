@@ -9,6 +9,11 @@ const (
 	V1KindServerWrite       string = "server.write"
 )
 
+const (
+	V1HeadFromFile string = "from-file"
+	V1HeadHelp     string = "help"
+)
+
 type V1Manifest struct {
 	Main []V1Main `yaml:"main"`
 }
@@ -21,10 +26,13 @@ type V1Main struct {
 }
 
 type V1Head struct {
-	Help V1Help `yaml:"help,omitempty"`
+	FromFile V1HeadFromFileType `yaml:"from-file,omitempty"`
+	Help     V1HeadHelpType     `yaml:"help,omitempty"`
 }
 
-type V1Help map[string]string
+type V1HeadFromFileType *string
+
+type V1HeadHelpType map[string]string
 
 type V1Body map[string]string
 

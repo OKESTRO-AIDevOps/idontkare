@@ -21,6 +21,15 @@ func main() {
 
 	if SERVER_CONFIG.ApixVersion == 1 {
 
+		err := V1Run()
+
+		if err != nil {
+
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			return
+
+		}
+
 	} else {
 
 		fmt.Fprintf(os.Stderr, "wrong apix version: %d\n", SERVER_CONFIG.ApixVersion)

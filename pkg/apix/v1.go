@@ -43,9 +43,7 @@ func V1GetMainByByte(main_b []byte, mani *pkgresourceapix.V1Manifest) (*pkgresou
 
 	}
 
-	realMain := mani.Main
-
-	rmlen := len(realMain)
+	rmlen := len(mani.Main)
 
 	found := -1
 
@@ -53,7 +51,7 @@ func V1GetMainByByte(main_b []byte, mani *pkgresourceapix.V1Manifest) (*pkgresou
 
 	for i := 0; i < rmlen; i++ {
 
-		thisPath := realMain[i].Kind + realMain[i].Path
+		thisPath := mani.Main[i].Kind + mani.Main[i].Path
 
 		if targetPath == thisPath {
 
@@ -70,7 +68,38 @@ func V1GetMainByByte(main_b []byte, mani *pkgresourceapix.V1Manifest) (*pkgresou
 
 	}
 
-	realBody := realMain[found].Body
+	realHead := mani.Main[found].Head
+
+	if realHead.FromFile != nil {
+
+		fromFilePath, v1mainokay := v1main.Body[pkgresourceapix.V1HeadFromFile]
+
+		if v1mainokay {
+
+			file_b, err := os.ReadFile(fromFilePath)
+
+			if err != nil {
+
+				return nil, fmt.Errorf("from-file flag: file doens't exist: %s", err.Error())
+			}
+
+			var fileBody pkgresourceapix.V1Body
+
+			err = yaml.Unmarshal(file_b, &fileBody)
+
+			if err != nil {
+
+				return nil, fmt.Errorf("from-file flag: invalid format: %s", err.Error())
+
+			}
+
+			v1main.Body = fileBody
+
+		}
+
+	}
+
+	realBody := mani.Main[found].Body
 
 	rblen := len(realBody)
 
@@ -101,7 +130,9 @@ func V1GetMainByByte(main_b []byte, mani *pkgresourceapix.V1Manifest) (*pkgresou
 	return &v1main, nil
 }
 
-func V1GetMainTemplateByAddress(kind string, path string, mani *pkgresourceapix.V1Manifest) (*pkgresourceapix.V1Main, error) {
+func V1GetMainCopyByAddress(kind string, path string, mani *pkgresourceapix.V1Manifest) (*pkgresourceapix.V1Main, error) {
+
+	var retMain pkgresourceapix.V1Main
 
 	realMain := mani.Main
 
@@ -130,7 +161,9 @@ func V1GetMainTemplateByAddress(kind string, path string, mani *pkgresourceapix.
 
 	}
 
-	return &(realMain[found]), nil
+	retMain = realMain[found]
+
+	return &retMain, nil
 
 }
 
@@ -138,7 +171,7 @@ func V1GetMainFromArgs(kind string, args []string, mani *pkgresourceapix.V1Manif
 
 	pathString := ""
 
-	possibleBody := make(map[string]string)
+	possibleBody := make(pkgresourceapix.V1Body)
 
 	idx := 0
 
@@ -189,7 +222,7 @@ func V1GetMainFromArgs(kind string, args []string, mani *pkgresourceapix.V1Manif
 
 	}
 
-	realMain, err := V1GetMainTemplateByAddress(kind, pathString, mani)
+	realMain, err := V1GetMainCopyByAddress(kind, pathString, mani)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get main template for: %s", kind+pathString)
