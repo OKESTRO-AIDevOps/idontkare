@@ -5,6 +5,8 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,9 +14,12 @@ import (
 	"time"
 
 	pkgapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/apix"
+	pkgauth "github.com/OKESTRO-AIDevOps/idontkare/pkg/auth"
 	pkgdbquery "github.com/OKESTRO-AIDevOps/idontkare/pkg/dbquery"
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
+	pkgresourceauth "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/auth"
 	pkgresourcecomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/comm"
+	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 	pkgutils "github.com/OKESTRO-AIDevOps/idontkare/pkg/utils"
 	apiximpl "github.com/OKESTRO-AIDevOps/idontkare/src/server/apiximpl"
 	"github.com/gorilla/websocket"
@@ -24,6 +29,10 @@ import (
 var V1MANI *pkgresourceapix.V1Manifest
 
 var V1CA_CERT *x509.Certificate
+
+var agent_register = make(pkgresourceauth.AgentRegister)
+
+var agent_address_register = make(pkgresourceauth.AgentAddressRegister)
 
 func V1SetApixImpl() {
 
@@ -64,7 +73,7 @@ func V1ClientAccept(c *websocket.Conn) error {
 
 		if v1mainConnect == nil {
 
-			retErr = fmt.Errorf("accept: empty main: %s", err.Error())
+			retErr = fmt.Errorf("accept: empty main")
 
 			break
 		}
@@ -166,6 +175,399 @@ func V1ClientAccept(c *websocket.Conn) error {
 	}
 
 	return nil
+}
+
+func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
+
+	var newRegister = make(pkgresourceauth.AgentRegister)
+
+	var req pkgresourcecomm.CommJSON
+	var resp pkgresourcecomm.CommJSON
+
+	var resultData []byte
+
+	var retErr error
+
+	var chalCode string
+
+	var userRecord *pkgresourcedb.DB_User
+	var clusterRecord pkgresourcedb.DB_Cluster
+	var newKey string
+
+	var acceptSuccess int = 0
+	var challengeSuccess int = 0
+
+	err := c.ReadJSON(&req)
+
+	if err != nil {
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_FAILURE
+		resp.Message = "read failed"
+		resp.Data = []byte{}
+
+		_ = c.WriteJSON(resp)
+
+		return nil, fmt.Errorf("accept: failed to read: %s", err.Error())
+	}
+
+	for {
+
+		v1mainAccept, err := pkgapix.V1GetMainByByte(req.Data, V1MANI)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("accept: failed to get main: %s", err.Error())
+
+			break
+		}
+
+		if v1mainAccept == nil {
+
+			retErr = fmt.Errorf("accept: empty main")
+
+			break
+		}
+
+		thisAddr := pkgresourceapix.V1KindAgentRequestPriv + "/cluster/connect"
+
+		targetAddr := v1mainAccept.Kind + v1mainAccept.Path
+
+		if thisAddr != targetAddr {
+
+			retErr = fmt.Errorf("accept: addr not matched: got: %s should: %s", targetAddr, thisAddr)
+
+			break
+		}
+
+		thisClusterName, okay := v1mainAccept.Body["name"]
+
+		if !okay {
+
+			retErr = fmt.Errorf("accept: 'name' doesn't exist")
+
+			break
+		}
+
+		thisUserName, okay := v1mainAccept.Body["username"]
+
+		if !okay {
+
+			retErr = fmt.Errorf("accept: 'username' doesn't exist")
+
+			break
+		}
+
+		urecord, err := pkgdbquery.GetUserByName(thisUserName)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("accept: failed to get user: %s", thisUserName)
+
+			break
+		}
+
+		if urecord == nil {
+
+			retErr = fmt.Errorf("accept: empty user record")
+
+			break
+		}
+
+		userRecord = urecord
+
+		crecord, err := pkgdbquery.GetClustersByUserId(urecord.UserId)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("accept: failed to cluster record: %s", err.Error())
+
+			break
+		}
+
+		clen := len(crecord)
+
+		if crecord == nil || clen == 0 {
+
+			retErr = fmt.Errorf("accept: cluster zero")
+
+			break
+
+		}
+
+		c_found := -1
+
+		for i := 0; i < clen; i++ {
+
+			if crecord[i].ClusterName == thisClusterName {
+				c_found = i
+				break
+			}
+
+		}
+
+		if c_found == -1 {
+
+			retErr = fmt.Errorf("accept: cluster not found: %s", err.Error())
+
+			break
+		}
+
+		clusterRecord = crecord[c_found]
+
+		cpub_str := crecord[c_found].ClusterPub
+
+		cpub, err := pkgutils.BytesToPublicKey([]byte(cpub_str))
+
+		if err != nil {
+
+			retErr = fmt.Errorf("accept: get pubkey: %s", err.Error())
+			break
+		}
+
+		thisChalCode, _ := pkgutils.RandomHex(32)
+
+		chalCode = thisChalCode
+
+		thisChalCode_b := []byte(thisChalCode)
+
+		thisChalCode_enc, err := pkgutils.EncryptWithPublicKey(thisChalCode_b, cpub)
+
+		thisChalCode_hex := hex.EncodeToString(thisChalCode_enc)
+
+		resp_output := pkgresourceapix.V1ResultData{}
+
+		resp_output.Output = thisChalCode_hex
+
+		result_yb, err := yaml.Marshal(resp_output)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("accept: marshal result: %s", err.Error())
+
+			break
+		}
+
+		resultData = result_yb
+
+		acceptSuccess = 1
+
+		break
+
+	}
+
+	if acceptSuccess != 1 {
+
+		log.Printf("failed accept: %s\n", retErr.Error())
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_FAILURE
+		resp.Message = "not accepted"
+
+		resp.Data = []byte{}
+	} else {
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_SUCCESS
+		resp.Message = "challenge accepted"
+
+		resp.Data = resultData
+	}
+
+	err = c.WriteJSON(resp)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("accept error: %s", err.Error())
+	}
+
+	if acceptSuccess != 1 {
+		return nil, retErr
+	}
+
+	req = pkgresourcecomm.CommJSON{}
+	resp = pkgresourcecomm.CommJSON{}
+
+	resultData = []byte{}
+
+	retErr = nil
+
+	err = c.ReadJSON(&req)
+
+	if err != nil {
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_FAILURE
+		resp.Message = "read failed"
+		resp.Data = []byte{}
+
+		_ = c.WriteJSON(resp)
+
+		return nil, fmt.Errorf("accept: failed to read: %s", err.Error())
+	}
+
+	// TODO:
+	//   needs timeout
+
+	for {
+
+		v1mainChal, err := pkgapix.V1GetMainByByte(req.Data, V1MANI)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: failed to get main: %s", err.Error())
+
+			break
+		}
+
+		if v1mainChal == nil {
+
+			retErr = fmt.Errorf("chal: empty main")
+
+			break
+		}
+
+		thisAddr := pkgresourceapix.V1KindAgentRequestPriv + "/cluster/connect/challenge"
+
+		targetAddr := v1mainChal.Kind + v1mainChal.Path
+
+		if thisAddr != targetAddr {
+
+			retErr = fmt.Errorf("chal: addr not matched: got: %s should: %s", targetAddr, thisAddr)
+
+			break
+		}
+
+		chal_data, okay := v1mainChal.Body["chaldata"]
+
+		if !okay {
+
+			retErr = fmt.Errorf("chal: 'chaldata' doesn't exist: %s", err.Error())
+
+			break
+		}
+
+		chalCode_b := []byte(chalCode)
+
+		chal_data_b, err := hex.DecodeString(chal_data)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: decode: %s", err.Error())
+
+			break
+		}
+
+		data_b, err := pkgutils.DecryptWithSymmetricKey(chalCode_b, chal_data_b)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: decrypt: %s", err.Error())
+
+			break
+		}
+
+		cdata := pkgresourceauth.ChallengeData{}
+
+		err = json.Unmarshal(data_b, &cdata)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: unmarshal chaldata: %s", err.Error())
+
+			break
+		}
+
+		if userRecord.UserPass != cdata.Pass {
+
+			retErr = fmt.Errorf("chal: pass not matched: %s", err.Error())
+
+			break
+		}
+
+		err = pkgauth.VerifySessionKey(cdata.Key)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: key invalid: %s", err.Error())
+
+			break
+		}
+
+		newKey = cdata.Key
+
+		newKey_b := []byte(newKey)
+
+		tmp_message := "okay"
+
+		enc_b, err := pkgutils.EncryptWithSymmetricKey(newKey_b, []byte(tmp_message))
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: encryp with new: %s", err.Error())
+
+			break
+
+		}
+
+		enc_hex := hex.EncodeToString(enc_b)
+
+		result_data := pkgresourceapix.V1ResultData{}
+
+		result_data.Output = enc_hex
+
+		yb, err := yaml.Marshal(result_data)
+
+		if err != nil {
+
+			retErr = fmt.Errorf("chal: marshal result: %s", err.Error())
+
+			break
+		}
+
+		resultData = yb
+
+		challengeSuccess = 1
+
+		break
+
+	}
+
+	if challengeSuccess != 1 {
+
+		log.Printf("failed chal: %s\n", retErr.Error())
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_FAILURE
+		resp.Message = "challenge failed"
+
+		resp.Data = []byte{}
+
+	} else {
+
+		resp.Status = pkgresourcecomm.COMM_STATUS_SUCCESS
+		resp.Message = "cahllenge success"
+
+		resp.Data = resultData
+
+	}
+
+	err = c.WriteJSON(resp)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("chal error: %s", err.Error())
+	}
+
+	if challengeSuccess != 1 {
+		return nil, retErr
+	}
+
+	registerKey := userRecord.UserName + ":" + clusterRecord.ClusterName
+
+	agentData := pkgresourceauth.AgentData{
+		Key: newKey,
+		C:   c,
+	}
+
+	newRegister[registerKey] = agentData
+
+	return &newRegister, nil
 }
 
 func V1ClientHandler(w http.ResponseWriter, r *http.Request) {
@@ -313,6 +715,49 @@ func V1ClientHandler(w http.ResponseWriter, r *http.Request) {
 
 func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 
+	log.Println("agent access")
+
+	u := websocket.Upgrader{}
+
+	u.CheckOrigin = func(r *http.Request) bool { return true }
+
+	c, err := u.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("agent upgrade: %s\n", err.Error())
+		return
+	}
+
+	c.SetReadDeadline(time.Time{})
+
+	defer c.Close()
+
+	new_ar, err := AgentAccept(c)
+
+	if err != nil {
+
+		log.Printf("agent accept: %s\n", err.Error())
+
+		return
+	}
+
+	thisAgentId := ""
+
+	for k, v := range *new_ar {
+
+		agent_register[k] = v
+
+		thisAgentId = k
+	}
+
+	agent_address_register[c] = thisAgentId
+
+	log.Printf("agent accepted")
+
+	keep_running := 1
+
+	for keep_running == 1 {
+
+	}
 }
 
 func V1Run() error {
