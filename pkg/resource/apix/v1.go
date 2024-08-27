@@ -7,6 +7,7 @@ const (
 	V1KindAgentRequestPriv  string = "agent.request.priv"
 	V1KindAgentPush         string = "agent.push"
 	V1KindServerWrite       string = "server.write"
+	V1KindServerRead        string = "server.read"
 )
 
 const (

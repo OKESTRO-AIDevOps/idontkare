@@ -79,7 +79,7 @@ main:
       name: required
       path: required 
 
-  - kind: agent.request
+  - kind: agent.request.priv
     path: /cluster/connect
     head:
       help:
