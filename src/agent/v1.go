@@ -91,7 +91,7 @@ func V1Connect(connect_url string, name string, username string, priv_key *rsa.P
 		return nil, fmt.Errorf("failed to connect: decrypt: %s", err.Error())
 	}
 
-	session_key, _ := pkgutils.RandomHex(32)
+	session_key, _ := pkgutils.RandomHex(16)
 
 	chal_data := pkgresourceauth.ChallengeData{
 		Pass: AGENT_CONFIG.UserPass,
@@ -159,129 +159,79 @@ func V1Connect(connect_url string, name string, username string, priv_key *rsa.P
 	return &agentConn, nil
 }
 
-func V1Communicate(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) error {
+func V1HandleAgentPush(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
-	keep_comm := 1
+	for {
 
-	for keep_comm == 1 {
+	}
+}
 
-		var retData []byte
+func V1HandleServerPush(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) error {
 
-		var errMessage error = nil
+	var errMessage error
+
+	for {
 
 		req := pkgresourcecomm.CommJSON{}
 
-		resp := pkgresourcecomm.CommJSON{}
+		err := acon.C.ReadJSON(&req)
 
-		for {
+		if err != nil {
 
-			err := acon.C.ReadJSON(&req)
+			errMessage = fmt.Errorf("failed to communicate: read: %s", err.Error())
 
-			if err != nil {
-
-				errMessage = fmt.Errorf("failed to communicate: read: %s", err.Error())
-
-				break
-			}
-
-			data_b, err := comm.CommDataDecrypt(string(req.Data), acon.SessionKey)
-
-			if err != nil {
-
-				errMessage = fmt.Errorf("failed to communicate: decrypt: %s", err.Error())
-
-				break
-			}
-
-			v1main, err := pkgapix.V1GetMainByByte(data_b, mani)
-
-			if err != nil {
-
-				errMessage = fmt.Errorf("failed to communicate: get main: %s", err.Error())
-
-				break
-			}
-
-			var respData *pkgresourceapix.V1ResultData
-
-			switch v1main.Kind {
-
-			case pkgresourceapix.V1KindServerWrite:
-
-				respData, err = agentapiximpl.V1ServerWriteCtl(v1main)
-
-				if err != nil {
-
-					errMessage = fmt.Errorf("failed to handle write: %s", err.Error())
-
-					break
-				}
-
-			case pkgresourceapix.V1KindServerRead:
-
-				respData, err = agentapiximpl.V1ServerReadCtl(v1main)
-
-				if err != nil {
-
-					errMessage = fmt.Errorf("failed to handle read: %s", err.Error())
-
-					break
-				}
-
-			default:
-
-				errMessage = fmt.Errorf("failed to communicate: illegal kind: %s", v1main.Kind)
-
-				break
-			}
-
-			if errMessage != nil {
-				break
-			}
-
-			rd_b, err := yaml.Marshal(*respData)
-
-			if err != nil {
-
-				errMessage = fmt.Errorf("failed to communicate: marshal data: %s", err.Error())
-
-				break
-			}
-
-			data_enc, err := comm.CommDataEncrypt(rd_b, acon.SessionKey)
-
-			if err != nil {
-
-				errMessage = fmt.Errorf("failed to communicate: encrypt: %s", err.Error())
-
-				break
-			}
-
-			retData = []byte(data_enc)
+			log.Println(errMessage)
 
 			break
 		}
 
-		if errMessage != nil {
-
-			log.Printf("error communicate: %s\n", errMessage.Error())
-
-			resp.Data = []byte{}
-			resp.Status = pkgresourcecomm.COMM_STATUS_FAILURE
-
-		} else {
-
-			resp.Data = retData
-			resp.Status = pkgresourcecomm.COMM_STATUS_SUCCESS
-
-		}
-
-		err := acon.C.WriteJSON(resp)
+		data_b, err := comm.CommDataDecrypt(string(req.Data), acon.SessionKey)
 
 		if err != nil {
 
-			return fmt.Errorf("failed to write: %s", err.Error())
+			errMessage = fmt.Errorf("failed to communicate: decrypt: %s", err.Error())
+
+			log.Println(errMessage)
+
+			continue
 		}
+
+		v1main, err := pkgapix.V1GetMainByByte(data_b, mani)
+
+		if err != nil {
+
+			errMessage = fmt.Errorf("failed to communicate: get main: %s", err.Error())
+
+			log.Println(errMessage)
+
+			continue
+		}
+
+		switch v1main.Kind {
+
+		case pkgresourceapix.V1KindServerPush:
+
+			err = agentapiximpl.V1ServerPush(v1main)
+
+			if err != nil {
+
+				errMessage = fmt.Errorf("failed to handle write: %s", err.Error())
+
+				log.Println(errMessage)
+
+				continue
+			}
+
+		default:
+
+			errMessage = fmt.Errorf("failed to communicate: illegal kind: %s", v1main.Kind)
+
+			log.Println(errMessage)
+
+			continue
+		}
+
+		log.Printf("handled server push: %s: %s", v1main.Kind, v1main.Path)
 
 	}
 
@@ -296,20 +246,20 @@ func V1Run(connect_url string, name string, username string, key_path string) er
 
 	if err != nil {
 
-		return err
+		return fmt.Errorf("failed to run: manifest: %s", err.Error())
 	}
 
 	key_file_b, err := os.ReadFile(key_path)
 
 	if err != nil {
 
-		return err
+		return fmt.Errorf("failed to run: read key: %s", err.Error())
 	}
 
 	privKey, err := pkgutils.BytesToPrivateKey(key_file_b)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to run: parse key: %s", err.Error())
 	}
 
 	conn, err := V1Connect(connect_url, name, username, privKey, manifest)
@@ -319,7 +269,9 @@ func V1Run(connect_url string, name string, username string, key_path string) er
 		return err
 	}
 
-	err = V1Communicate(conn, manifest)
+	go V1HandleAgentPush(conn, manifest)
+
+	err = V1HandleServerPush(conn, manifest)
 
 	if err != nil {
 

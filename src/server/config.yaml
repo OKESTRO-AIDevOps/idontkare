@@ -1,6 +1,7 @@
 apix_version: 1
 listen_addr: "0.0.0.0"
-listen_port: "1337"
+listen_port_client: "1337"
+listen_port_agent: "1338"
 client_path: "/idontkare/client"
 agent_path: "/idontkare/agent"
 client_timeout_ms: 10000

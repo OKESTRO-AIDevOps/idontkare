@@ -337,7 +337,7 @@ func GetClusterById(id int) (*pkgresourcedb.DB_Cluster, error) {
 			cluster_name,
 			cluster_pub,
 			cluster_connected,
-			cluster_session_key,
+			cluster_session_key
 		FROM
 			cluster
 		WHERE
@@ -403,7 +403,7 @@ func GetClustersByUserId(user_id int) ([]pkgresourcedb.DB_Cluster, error) {
 			cluster_name,
 			cluster_pub,
 			cluster_connected,
-			cluster_session_key,
+			cluster_session_key
 		FROM
 			cluster
 		WHERE
@@ -665,7 +665,6 @@ func GetProjectById(id int) (*pkgresourcedb.DB_Project, error) {
 			&dbproject.ProjectRegistry,
 			&dbproject.ProjectRegistryId,
 			&dbproject.ProjectRegistryPw,
-			&dbproject.ProjectClusterId,
 			&dbproject.ProjectCiOption,
 			&dbproject.ProjectCdOption,
 		)
@@ -744,7 +743,6 @@ func GetProjectsByUserId(user_id int) ([]pkgresourcedb.DB_Project, error) {
 			&dbproject.ProjectRegistry,
 			&dbproject.ProjectRegistryId,
 			&dbproject.ProjectRegistryPw,
-			&dbproject.ProjectClusterId,
 			&dbproject.ProjectCiOption,
 			&dbproject.ProjectCdOption,
 		)
@@ -864,8 +862,8 @@ func SetProject(user_id int, name string, git string, gitid string, gitpw string
 					?,
 					?,
 					-1,
-					NULL,
-					NULL
+	                NULL,
+	                NULL
 				)
 
 		
