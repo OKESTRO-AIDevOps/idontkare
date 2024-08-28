@@ -6,7 +6,10 @@ import (
 
 	pkgcomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/comm"
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
+	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
+	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
 	pkgresourcecomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/comm"
+	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
 	"github.com/gorilla/websocket"
 	"gopkg.in/yaml.v3"
 )
@@ -14,33 +17,9 @@ import (
 var V1TIMEOUT_MS int = 5000
 var interval_ms int = 10
 
-func V1ServerWriteCtl(v1main *pkgresourceapix.V1Main) (*pkgresourceapix.V1ResultData, error) {
-
-	var resp pkgresourceapix.V1ResultData
-
-	route := v1main.Path
-
-	switch route {
-
-	}
-
-	return &resp, nil
-
-}
-
-func V1ServerReadCtl(v1main *pkgresourceapix.V1Main) (*pkgresourceapix.V1ResultData, error) {
-
-	var resp pkgresourceapix.V1ResultData
-
-	route := v1main.Path
-
-	switch route {
-
-	}
-
-	return &resp, nil
-
-}
+var CI_OPTIONS_Q = make([]pkgresourceci.CiOption, 0)
+var CD_OPTIONS_Q = make([]pkgresourcecd.CdOption, 0)
+var LC_OPTIONS_Q = make([]pkgresourcelc.LifecycleOption, 0)
 
 func V1AgentRequestCtl(v1main *pkgresourceapix.V1Main, c *websocket.Conn, sess_key []byte) (*pkgresourceapix.V1ResultData, error) {
 
@@ -176,4 +155,70 @@ func V1RoundTrip(v1main *pkgresourceapix.V1Main, c *websocket.Conn, sess_key []b
 	}
 
 	return &resp, nil
+}
+
+func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
+
+	route := v1main.Path
+
+	switch route {
+
+	case "/project/cluster/ci/alloc":
+
+		projectname := v1main.Body["name"]
+		git := v1main.Body["git"]
+		gitid := v1main.Body["gitid"]
+		gitpw := v1main.Body["gitpw"]
+		reg := v1main.Body["reg"]
+		regid := v1main.Body["regid"]
+		regpw := v1main.Body["regpw"]
+		cioption := v1main.Body["cioption"]
+
+		err := V1ProjectClusterCiAlloc(projectname, git, gitid, gitpw, reg, regid, regpw, cioption)
+
+		if err != nil {
+
+			return fmt.Errorf("failed server push: ci alloc: %s", err.Error())
+
+		}
+
+	case "/project/cluster/cd/alloc":
+
+		projectname := v1main.Body["name"]
+		git := v1main.Body["git"]
+		gitid := v1main.Body["gitid"]
+		gitpw := v1main.Body["gitpw"]
+		reg := v1main.Body["reg"]
+		regid := v1main.Body["regid"]
+		regpw := v1main.Body["regpw"]
+		cdoption := v1main.Body["cdoption"]
+
+		err := V1ProjectClusterCiAlloc(projectname, git, gitid, gitpw, reg, regid, regpw, cdoption)
+
+		if err != nil {
+
+			return fmt.Errorf("failed server push: cd alloc: %s", err.Error())
+		}
+
+	case "/project/lifecycle/update":
+
+		projectname := v1main.Body["name"]
+		lcoption := v1main.Body["option"]
+
+		err := V1ProjectLifecycleUpdate(projectname, lcoption)
+
+		if err != nil {
+
+			return fmt.Errorf("failed server push: lifecycle update: %s", err.Error())
+		}
+
+	}
+
+	return nil
+
+}
+
+func V1AgentPush(v1main *pkgresourceapix.V1Main, c *websocket.Conn, sess_key []byte) error {
+
+	return nil
 }

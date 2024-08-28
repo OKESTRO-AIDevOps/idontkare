@@ -11,10 +11,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	pkgapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/apix"
 	pkgauth "github.com/OKESTRO-AIDevOps/idontkare/pkg/auth"
+	pkgcomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/comm"
 	pkgdbquery "github.com/OKESTRO-AIDevOps/idontkare/pkg/dbquery"
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
 	pkgresourceauth "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/auth"
@@ -190,7 +192,9 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 
 	var chalCode string
 
-	var userRecord *pkgresourcedb.DB_User
+	var userName string
+
+	var userRecord pkgresourcedb.DB_User
 	var clusterRecord pkgresourcedb.DB_Cluster
 	var newKey string
 
@@ -273,7 +277,9 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 			break
 		}
 
-		userRecord = urecord
+		userRecord = *urecord
+
+		userName = thisUserName
 
 		crecord, err := pkgdbquery.GetClustersByUserId(urecord.UserId)
 
@@ -324,7 +330,7 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 			break
 		}
 
-		thisChalCode, _ := pkgutils.RandomHex(32)
+		thisChalCode, _ := pkgutils.RandomHex(16)
 
 		chalCode = thisChalCode
 
@@ -476,7 +482,7 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 
 		if userRecord.UserPass != cdata.Pass {
 
-			retErr = fmt.Errorf("chal: pass not matched: %s", err.Error())
+			retErr = fmt.Errorf("chal: pass not matched")
 
 			break
 		}
@@ -541,7 +547,7 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 	} else {
 
 		resp.Status = pkgresourcecomm.COMM_STATUS_SUCCESS
-		resp.Message = "cahllenge success"
+		resp.Message = "challenge success"
 
 		resp.Data = resultData
 
@@ -558,7 +564,7 @@ func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 		return nil, retErr
 	}
 
-	registerKey := userRecord.UserName + ":" + clusterRecord.ClusterName
+	registerKey := userName + ":" + clusterRecord.ClusterName
 
 	agentData := pkgresourceauth.AgentData{
 		Key: newKey,
@@ -645,7 +651,7 @@ func V1ClientHandler(w http.ResponseWriter, r *http.Request) {
 
 		case pkgresourceapix.V1KindClientRequest:
 
-			v1result, err := apiximpl.V1ClientRequestCtl(v1main, c)
+			v1result, err := apiximpl.V1ClientRequestCtl(v1main)
 
 			if err != nil {
 
@@ -741,23 +747,91 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	thisAgentId := ""
+	thisAgentName := ""
+	thisAgentCluster := ""
+	thisAgentData := pkgresourceauth.AgentData{}
 
 	for k, v := range *new_ar {
 
 		agent_register[k] = v
+
+		thisAgentData = v
 
 		thisAgentId = k
 	}
 
 	agent_address_register[c] = thisAgentId
 
-	log.Printf("agent accepted")
+	this_agent_li := strings.SplitN(thisAgentId, ":", 2)
 
-	keep_running := 1
+	thisAgentName = this_agent_li[0]
+	thisAgentCluster = this_agent_li[1]
 
-	for keep_running == 1 {
+	log.Printf("========== agent accepted")
+
+	fmt.Println(agent_register)
+
+	log.Printf("==========")
+
+	for {
+
+		req := pkgresourcecomm.CommJSON{}
+
+		// for now, only push exists
+		// not sending response
+		// resp := pkgresourcecomm.CommJSON{}
+
+		err := c.ReadJSON(&req)
+
+		if err != nil {
+
+			log.Printf("agent handle: agent gone\n")
+
+			_ = c.Close()
+
+			return
+		}
+
+		data_b, err := pkgcomm.CommDataDecrypt(string(req.Data), []byte(thisAgentData.Key))
+
+		if err != nil {
+
+			log.Printf("id: %s: decrypt: %s\n", thisAgentId, err.Error())
+
+			continue
+		}
+
+		v1main, err := pkgapix.V1GetMainByByte(data_b, V1MANI)
+
+		if err != nil {
+			log.Printf("id: %s: main: %s\n", thisAgentId, err.Error())
+
+			continue
+		}
+
+		if v1main == nil {
+
+			log.Printf("id: %s: empty\n", thisAgentId)
+
+			continue
+		}
+
+		err = apiximpl.V1AgentPush(v1main, thisAgentName, thisAgentCluster)
+
+		if err != nil {
+
+			log.Printf("id: %s: agent push: %s", thisAgentId, err.Error())
+		}
 
 	}
+}
+
+func V1ProjectControlLoop() {
+
+	for {
+
+	}
+
 }
 
 func V1Run() error {
@@ -802,14 +876,24 @@ func V1Run() error {
 
 	V1CA_CERT = cacert
 
-	listen_addr_full := SERVER_CONFIG.ListenAddr + ":" + SERVER_CONFIG.ListenPort
+	listen_addr_client := SERVER_CONFIG.ListenAddr + ":" + SERVER_CONFIG.ListenPortClient
+
+	listen_addr_agent := SERVER_CONFIG.ListenAddr + ":" + SERVER_CONFIG.ListenPortAgent
+
+	go V1ProjectControlLoop()
+
+	go func() {
+		http.HandleFunc(SERVER_CONFIG.AgentPath, V1AgentHandler)
+		log.Printf("server for agent started at: %s", listen_addr_client)
+		log.Fatal(http.ListenAndServe(listen_addr_agent, nil))
+
+	}()
 
 	http.HandleFunc(SERVER_CONFIG.ClientPath, V1ClientHandler)
-	http.HandleFunc(SERVER_CONFIG.AgentPath, V1AgentHandler)
 
-	log.Printf("server started at: %s", listen_addr_full)
+	log.Printf("server for client started at: %s", listen_addr_client)
 
-	log.Fatal(http.ListenAndServeTLS(listen_addr_full, "cert-server/cert.pem", "cert-server/cert-priv.pem", nil))
+	log.Fatal(http.ListenAndServeTLS(listen_addr_client, "cert-server/cert.pem", "cert-server/cert-priv.pem", nil))
 
 	return nil
 }

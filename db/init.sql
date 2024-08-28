@@ -51,7 +51,6 @@ CREATE TABLE project (
     project_registry TEXT,
     project_registry_id TEXT,
     project_registry_pw TEXT,
-    project_cluster_id INT,
     project_ci_option TEXT,
     project_cd_option TEXT,
     PRIMARY KEY (project_id)
@@ -83,6 +82,14 @@ CREATE TABLE project_cd (
     project_cd_start TIMESTAMP(3),
     project_cd_end TIMESTAMP(3),
     PRIMARY KEY (project_cd_id)
+);
+
+CREATE TABLE project_lifecycle (
+
+    project_lifecycle_id INT NOT NULL AUTO_INCREMENT,
+    project_id INT,
+    project_lifecycle_report TEXT,
+    PRIMARY KEY (project_lifecycle_id)
 );
 
 INSERT INTO 

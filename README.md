@@ -2,6 +2,80 @@
 
 Now I don't care about multi-cluster Kubernetes project management, because this one does 
 
+
+
+
+
+## Get started
+
+### server start
+
+```shell
+
+# start db in container
+
+cd db && sudo docker compose up --build -d
+
+
+# build client, server
+
+make build
+
+
+# build agent 
+
+make build-agent
+
+
+# start server 
+
+cd src/server && ./server.out
+
+```
+
+### client example
+
+```shell
+
+cd src/client
+
+
+# user set
+
+./client.out user set --name test --pass test
+
+# or use file for user set
+
+./client.out user set --from-file $FILE_PATH
+
+# file content should look like this
+
+name: something
+pass: somethingsecret
+
+# cluster set, this will write private key pem to stdout
+
+./client.out cluster set --username test --name testcluster
+
+```
+
+### agent example
+
+```shell
+
+cd src/agent
+
+# modify config.yaml accordingly
+
+# save private key content 
+
+# connect agent
+
+./agent.out
+
+```
+
+
 ## Reference
 
 This project has history.

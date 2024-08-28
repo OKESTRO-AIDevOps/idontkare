@@ -6,13 +6,18 @@ const (
 	V1KindAgentRequest      string = "agent.request"
 	V1KindAgentRequestPriv  string = "agent.request.priv"
 	V1KindAgentPush         string = "agent.push"
-	V1KindServerWrite       string = "server.write"
+	V1KindServerPush        string = "server.push"
 	V1KindServerRead        string = "server.read"
 )
 
 const (
 	V1HeadFromFile string = "from-file"
 	V1HeadHelp     string = "help"
+)
+
+const (
+	V1RESULT_STATUS_SUCCESS V1ResultStatusType = "success"
+	V1RESULT_STATUS_FAILURE V1ResultStatusType = "failure"
 )
 
 type V1Manifest struct {
@@ -37,6 +42,9 @@ type V1HeadHelpType map[string]string
 
 type V1Body map[string]string
 
+type V1ResultStatusType string
+
 type V1ResultData struct {
-	Output string `yaml:"output"`
+	Status V1ResultStatusType `yaml:"status,omitempty"`
+	Output string             `yaml:"output"`
 }

@@ -98,26 +98,10 @@ main:
       chaldata: required
 
   - kind: agent.push
-    path: /cluster/ci/ready
-    head:
-      help:
-        name: "cluster name"
-    body:
-      name: required
-
-  - kind: agent.push
-    path: /cluster/cd/ready
-    head:
-      help:
-        name: "cluster name"
-    body:
-      name: required
-
-  - kind: agent.push
     path: /project/ci/log
     head:
       help:
-        name: "cluster name"
+        name: "project name"
         status: "ci status"
         log: "log text contents"
     body:
@@ -129,7 +113,7 @@ main:
     path: /project/cd/log
     head:
       help:
-        name: "cluster name"
+        name: "project name"
         status: "cd status"
         log: "log text contents"
     body:
@@ -137,11 +121,22 @@ main:
       status: required
       log: required
 
-  - kind: server.write
+
+  - kind: agent.push
+    path: /project/lifecycle/report
+    head:
+      help:
+        name: "project name"
+        report: "lifecycle report"
+    body:
+      name: required
+      report: required
+
+  - kind: server.push
     path: /project/cluster/ci/alloc
     head:
       help:
-        id: "project id"
+        name: "project name"
         git: "git address"
         gitid: "git id"
         gitpw: "git password"
@@ -149,9 +144,8 @@ main:
         regid: "registry id"
         regpw: "registry pw"
         cioption: "project ci option text"
-        projectciid: "project ci id"
     body:
-      id: required
+      name: required
       git: required
       gitid: required
       gitpw: required
@@ -159,13 +153,12 @@ main:
       regid: required
       regpw: required
       cioption: required
-      projectciid: required
 
-  - kind: server.write
+  - kind: server.push
     path: /project/cluster/cd/alloc
     head:
       help:
-        id: "project id"
+        name: "project name"
         git: "git address"
         gitid: "git id"
         gitpw: "git password"
@@ -173,10 +166,9 @@ main:
         regid: "registry id"
         regpw: "registry pw"
         cdoption: "project cd option text"
-        projectcdid: "project cd id"
-        projectciid: "project ci id"
+
     body:
-      id: required
+      name: required
       git: required
       gitid: required
       gitpw: required
@@ -184,5 +176,14 @@ main:
       regid: required
       regpw: required
       cdoption: required
-      projectcdid: required
-      projectciid: required
+
+
+  - kind: server.push
+    path: /project/lifecycle/update
+    head:
+      help:
+        name: "project name"
+        option: "lifecycle option"
+    body:
+      name: required
+      option: required
