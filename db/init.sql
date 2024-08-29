@@ -84,12 +84,13 @@ CREATE TABLE project_cd (
     PRIMARY KEY (project_cd_id)
 );
 
-CREATE TABLE project_lifecycle (
+CREATE TABLE lifecycle (
 
-    project_lifecycle_id INT NOT NULL AUTO_INCREMENT,
+    lifecycle_id INT NOT NULL AUTO_INCREMENT,
     project_id INT,
-    project_lifecycle_report TEXT,
-    PRIMARY KEY (project_lifecycle_id)
+    lifecycle_report TEXT,
+    lifecycle_start TIMESTAMP(3),
+    PRIMARY KEY (lifecycle_id)
 );
 
 INSERT INTO 
