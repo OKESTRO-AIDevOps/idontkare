@@ -20,6 +20,8 @@ import (
 	pkgdbquery "github.com/OKESTRO-AIDevOps/idontkare/pkg/dbquery"
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
 	pkgresourceauth "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/auth"
+	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
+	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
 	pkgresourcecomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/comm"
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 	pkgutils "github.com/OKESTRO-AIDevOps/idontkare/pkg/utils"
@@ -828,7 +830,332 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 
 func V1ProjectControlLoop() {
 
+	var FAIL_COUNT_LIMIT int = 100
+
+	fail_count := 0
+
 	for {
+
+		var CI_Q = make([]pkgresourceci.CiOption, 0)
+		var CD_Q = make([]pkgresourcecd.CdOption, 0)
+
+		if fail_count >= FAIL_COUNT_LIMIT {
+
+			log.Fatalf("pctl: fail_count limit exceeded: %d\n", fail_count)
+		}
+
+		// poll project ci cd
+
+		PROJECTS, err := pkgdbquery.GetProject()
+
+		if err != nil {
+
+			log.Printf("pctl: failed to get project: %s\n", err.Error())
+
+			fail_count += 1
+
+			continue
+		}
+
+		PLEN := len(PROJECTS)
+
+		for i := 0; i < PLEN; i++ {
+
+			projectid := PROJECTS[i].ProjectId
+			userid := PROJECTS[i].UserId
+
+			cdopt := pkgresourcecd.CdOption{}
+			ciopt := pkgresourceci.CiOption{}
+
+			var cdopt_err error
+			var ciopt_err error
+
+			var process_err error = nil
+
+			cdoption_raw := PROJECTS[i].ProjectCdOption
+
+			cioption_raw := PROJECTS[i].ProjectCiOption
+
+			if !cdoption_raw.Valid && !cioption_raw.Valid {
+
+				log.Printf("pctl: skip: both null: uid: %d, pid: %d", userid, projectid)
+
+				continue
+
+			} else if !cdoption_raw.Valid && cioption_raw.Valid {
+
+				ciopt_err = yaml.Unmarshal([]byte(cioption_raw.String), &ciopt)
+
+				if ciopt.Request == nil {
+
+					log.Printf("pctl: skip: ci: already processed: uid: %d, pid: %d", userid, projectid)
+
+					continue
+				}
+
+				if ciopt_err != nil {
+
+					process_err = fmt.Errorf("pctl: skip: ci unmarshal: %s", ciopt_err.Error())
+
+				}
+
+				ciopt.Process = &struct {
+					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+					ProjectIndex  int                            "yaml:\"project_index\""
+					UserId        int                            `yaml:"user_id"`
+					ProjectName   string                         `yaml:"project_name"`
+					LinkToCd      int                            "yaml:\"link_to_cd\""
+					Error         error                          `yaml:"error"`
+				}{
+					StoredRequest: *ciopt.Request,
+					ProjectIndex:  i,
+					UserId:        PROJECTS[i].UserId,
+					ProjectName:   PROJECTS[i].ProjectName,
+					LinkToCd:      -1,
+					Error:         process_err,
+				}
+
+				ciopt.Request = nil
+
+				CI_Q = append(CI_Q, ciopt)
+
+			} else if cdoption_raw.Valid && !cioption_raw.Valid {
+
+				cdopt_err = yaml.Unmarshal([]byte(cdoption_raw.String), &cdopt)
+
+				if cdopt.Request == nil {
+
+					log.Printf("pctl: skip: cd: already processed")
+
+					continue
+				}
+
+				if cdopt_err != nil {
+
+					process_err = fmt.Errorf("pctl: skip: cd unmarshal: %s", cdopt_err.Error())
+
+				}
+
+				if cdopt.Request.DependOnCI {
+
+					if process_err != nil {
+
+						process_err = fmt.Errorf("pctl: depend on ci, but null ci + %s  ", process_err.Error())
+
+					} else {
+
+						process_err = fmt.Errorf("pctl: depend on ci, but null ci")
+
+					}
+
+				}
+
+				cdopt.Process = &struct {
+					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+					ProjectIndex  int                            "yaml:\"project_index\""
+					UserId        int                            `yaml:"user_id"`
+					ProjectName   string                         `yaml:"project_name"`
+					Error         error                          `yaml:"error"`
+				}{
+					StoredRequest: *cdopt.Request,
+					ProjectIndex:  i,
+					UserId:        PROJECTS[i].UserId,
+					ProjectName:   PROJECTS[i].ProjectName,
+					Error:         process_err,
+				}
+
+				cdopt.Request = nil
+
+				CD_Q = append(CD_Q, cdopt)
+
+			} else if cdoption_raw.Valid && cioption_raw.Valid {
+
+				should_process_ci := 1
+				should_process_cd := 1
+
+				ciopt_err = yaml.Unmarshal([]byte(cioption_raw.String), &ciopt)
+
+				cdopt_err = yaml.Unmarshal([]byte(cdoption_raw.String), &cdopt)
+
+				if ciopt_err != nil {
+
+					ciopt_err = fmt.Errorf("ci failed to unmarshal: %s", ciopt_err.Error())
+				}
+
+				if cdopt_err != nil {
+
+					cdopt_err = fmt.Errorf("cd failed to unamrshal: %s", cdopt_err.Error())
+
+				}
+
+				if ciopt.Request == nil {
+
+					should_process_ci = 0
+				}
+
+				if cdopt.Request == nil {
+
+					should_process_cd = 0
+				}
+
+				if should_process_cd == 0 && should_process_ci == 0 {
+
+					log.Printf("pctl: skip: ci cd: already processed")
+
+					continue
+				}
+
+				ciopt.Process = &struct {
+					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+					ProjectIndex  int                            "yaml:\"project_index\""
+					UserId        int                            `yaml:"user_id"`
+					ProjectName   string                         `yaml:"project_name"`
+					LinkToCd      int                            "yaml:\"link_to_cd\""
+					Error         error                          `yaml:"error"`
+				}{
+					StoredRequest: *ciopt.Request,
+					ProjectIndex:  i,
+					UserId:        PROJECTS[i].UserId,
+					ProjectName:   PROJECTS[i].ProjectName,
+					LinkToCd:      -1,
+					Error:         ciopt_err,
+				}
+
+				cdopt.Process = &struct {
+					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+					ProjectIndex  int                            "yaml:\"project_index\""
+					UserId        int                            `yaml:"user_id"`
+					ProjectName   string                         `yaml:"project_name"`
+					Error         error                          `yaml:"error"`
+				}{
+					StoredRequest: *cdopt.Request,
+					ProjectIndex:  i,
+					UserId:        PROJECTS[i].UserId,
+					ProjectName:   PROJECTS[i].ProjectName,
+					Error:         cdopt_err,
+				}
+
+				ciopt.Request = nil
+				cdopt.Request = nil
+
+				if cdopt.Process.StoredRequest.DependOnCI {
+
+					linkidx := len(CD_Q)
+
+					ciopt.Process.LinkToCd = linkidx
+
+				}
+
+				CI_Q = append(CI_Q, ciopt)
+
+				CD_Q = append(CD_Q, cdopt)
+
+			}
+		}
+
+		CI_Q_LEN := len(CI_Q)
+		CD_Q_LEN := len(CD_Q)
+
+		for i := 0; i < CI_Q_LEN; i++ {
+
+			cioption := CI_Q[i]
+
+			opt_byte := []byte{}
+
+			if cioption.Process.Error != nil {
+
+				cioption.Response = &struct {
+					ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
+					Error              error     "yaml:\"error\""
+				}{
+					ProcessedTimestamp: time.Now(),
+					Error:              cioption.Process.Error,
+				}
+
+				yb, err := yaml.Marshal(cioption)
+
+				if err != nil {
+
+					yb = opt_byte
+				}
+
+				err = pkgdbquery.SetProjectCiOptionByUserIdAndName(cioption.Process.UserId, cioption.Process.ProjectName, string(yb))
+
+				if err != nil {
+
+					fail_count += 1
+
+					log.Printf("pctl: skip: error while processing ci error: %s", err.Error())
+
+				}
+
+				continue
+			}
+
+			user_clusters, err := pkgdbquery.GetClustersByUserId(cioption.Process.UserId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				log.Printf("pctl: skip: error while querying user cluster: %s\n", err.Error())
+
+				continue
+			}
+
+			user_projectcis, err := pkgdbquery.GetProjectCisByProjectId(PROJECTS[cioption.Process.ProjectIndex].ProjectId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				log.Printf("pctl: skip: error while querying project cis: %s\n", err.Error())
+
+				continue
+			}
+
+			electedCluster := V1GetAllocableClusterId(user_clusters, user_projectcis)
+
+		}
+
+		for i := 0; i < CD_Q_LEN; i++ {
+
+			cdoption := CD_Q[i]
+
+			opt_byte := []byte{}
+
+			if cdoption.Process.Error != nil {
+
+				cdoption.Response = &struct {
+					ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
+					Error              error     "yaml:\"error\""
+				}{
+					ProcessedTimestamp: time.Now(),
+					Error:              cdoption.Process.Error,
+				}
+
+				yb, err := yaml.Marshal(cdoption)
+
+				if err != nil {
+
+					yb = opt_byte
+				}
+
+				err = pkgdbquery.SetProjectCdOptionByUserIdAndName(cdoption.Process.UserId, cdoption.Process.ProjectName, string(yb))
+
+				if err != nil {
+
+					fail_count += 1
+
+					log.Printf("pctl: skip: error while processing cd error: %s", err.Error())
+
+				}
+
+				continue
+
+			}
+
+		}
 
 	}
 

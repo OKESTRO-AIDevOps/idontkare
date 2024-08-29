@@ -10,3 +10,4 @@ db_addr: "localhost:3306"
 db_name: "idkdb"
 db_id: "idkdb"
 db_pw: "universalpassword"
+
