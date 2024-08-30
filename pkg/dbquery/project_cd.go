@@ -265,7 +265,70 @@ func GetProjectCdsByCiId(ci_id int) ([]pkgresourcedb.DB_Project_CD, error) {
 	return dbpcd_records, nil
 }
 
-func SetProjectCd(project_id int, cluster_id int, ci_id int) error {
+func GetProjectCdRunningByProjectIdAndClusterId(project_id int, cluster_id int) (*pkgresourcedb.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
+
+	var dbpcd pkgresourcedb.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_cd_id
+		FROM
+			project_cd
+		WHERE
+			project_id = ?
+			AND cluster_id = ?
+			AND project_cd_start IS NOT NULL
+			AND project_cd_end IS NULL
+	`
+
+	a := []any{
+
+		project_id,
+		cluster_id,
+	}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cd running by project id and cluster id: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresourcedb.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectCdId,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cd running by project id and cluster id: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	rlen := len(dbpcd_records)
+
+	if rlen != 1 {
+
+		return nil, fmt.Errorf("failed to get project cd running by project id and cluster id: len: %d", rlen)
+	}
+
+	dbpcd = dbpcd_records[0]
+
+	return &dbpcd, nil
+}
+
+func SetProjectCd(project_id int, cluster_id int, ci_id int) (*pkgresourcedb.DB_Project_CD, error) {
 
 	q := `
 	
@@ -301,10 +364,17 @@ func SetProjectCd(project_id int, cluster_id int, ci_id int) error {
 	err := DbExec(q, a)
 
 	if err != nil {
-		return fmt.Errorf("failed to set project cd: %s", err.Error())
+		return nil, fmt.Errorf("failed to set project cd: %s", err.Error())
 	}
 
-	return nil
+	newpcd, err := GetProjectCdRunningByProjectIdAndClusterId(project_id, cluster_id)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to set project cd: get new: %s", err.Error())
+	}
+
+	return newpcd, nil
 
 }
 
