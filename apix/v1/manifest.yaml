@@ -177,13 +177,3 @@ main:
       regpw: required
       cdoption: required
 
-
-  - kind: server.push
-    path: /project/lifecycle/update
-    head:
-      help:
-        name: "project name"
-        option: "lifecycle option"
-    body:
-      name: required
-      option: required

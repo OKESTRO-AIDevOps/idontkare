@@ -200,18 +200,6 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
 			return fmt.Errorf("failed server push: cd alloc: %s", err.Error())
 		}
 
-	case "/project/lifecycle/update":
-
-		projectname := v1main.Body["name"]
-		lcoption := v1main.Body["option"]
-
-		err := V1ProjectLifecycleUpdate(projectname, lcoption)
-
-		if err != nil {
-
-			return fmt.Errorf("failed server push: lifecycle update: %s", err.Error())
-		}
-
 	}
 
 	return nil
