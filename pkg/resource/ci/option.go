@@ -10,6 +10,7 @@ type CiOption struct {
 	Process *struct {
 		StoredRequest CiOption_Request `yaml:"stored_request"`
 		ProjectIndex  int              `yaml:"project_index"`
+		ProjectId     int              `yaml:"project_id"`
 		UserId        int              `yaml:"user_id"`
 		ProjectName   string           `yaml:"project_name"`
 		LinkToCd      int              `yaml:"link_to_cd"`

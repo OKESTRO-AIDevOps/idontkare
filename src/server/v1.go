@@ -902,6 +902,7 @@ func V1ProjectControlLoop() {
 				ciopt.Process = &struct {
 					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
 					ProjectIndex  int                            "yaml:\"project_index\""
+					ProjectId     int                            `yaml:"project_id"`
 					UserId        int                            `yaml:"user_id"`
 					ProjectName   string                         `yaml:"project_name"`
 					LinkToCd      int                            "yaml:\"link_to_cd\""
@@ -909,6 +910,7 @@ func V1ProjectControlLoop() {
 				}{
 					StoredRequest: *ciopt.Request,
 					ProjectIndex:  i,
+					ProjectId:     PROJECTS[i].ProjectId,
 					UserId:        PROJECTS[i].UserId,
 					ProjectName:   PROJECTS[i].ProjectName,
 					LinkToCd:      -1,
@@ -953,12 +955,14 @@ func V1ProjectControlLoop() {
 				cdopt.Process = &struct {
 					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
 					ProjectIndex  int                            "yaml:\"project_index\""
+					ProjectId     int                            `yaml:"project_id"`
 					UserId        int                            `yaml:"user_id"`
 					ProjectName   string                         `yaml:"project_name"`
 					Error         error                          `yaml:"error"`
 				}{
 					StoredRequest: *cdopt.Request,
 					ProjectIndex:  i,
+					ProjectId:     PROJECTS[i].ProjectId,
 					UserId:        PROJECTS[i].UserId,
 					ProjectName:   PROJECTS[i].ProjectName,
 					Error:         process_err,
@@ -1008,6 +1012,7 @@ func V1ProjectControlLoop() {
 				ciopt.Process = &struct {
 					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
 					ProjectIndex  int                            "yaml:\"project_index\""
+					ProjectId     int                            `yaml:"project_id"`
 					UserId        int                            `yaml:"user_id"`
 					ProjectName   string                         `yaml:"project_name"`
 					LinkToCd      int                            "yaml:\"link_to_cd\""
@@ -1015,6 +1020,7 @@ func V1ProjectControlLoop() {
 				}{
 					StoredRequest: *ciopt.Request,
 					ProjectIndex:  i,
+					ProjectId:     PROJECTS[i].ProjectId,
 					UserId:        PROJECTS[i].UserId,
 					ProjectName:   PROJECTS[i].ProjectName,
 					LinkToCd:      -1,
@@ -1024,12 +1030,14 @@ func V1ProjectControlLoop() {
 				cdopt.Process = &struct {
 					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
 					ProjectIndex  int                            "yaml:\"project_index\""
+					ProjectId     int                            `yaml:"project_id"`
 					UserId        int                            `yaml:"user_id"`
 					ProjectName   string                         `yaml:"project_name"`
 					Error         error                          `yaml:"error"`
 				}{
 					StoredRequest: *cdopt.Request,
 					ProjectIndex:  i,
+					ProjectId:     PROJECTS[i].ProjectId,
 					UserId:        PROJECTS[i].UserId,
 					ProjectName:   PROJECTS[i].ProjectName,
 					Error:         cdopt_err,
@@ -1056,30 +1064,15 @@ func V1ProjectControlLoop() {
 		CI_Q_LEN := len(CI_Q)
 		CD_Q_LEN := len(CD_Q)
 
+		// push ci
+
 		for i := 0; i < CI_Q_LEN; i++ {
 
 			cioption := CI_Q[i]
 
-			opt_byte := []byte{}
-
 			if cioption.Process.Error != nil {
 
-				cioption.Response = &struct {
-					ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-					Error              error     "yaml:\"error\""
-				}{
-					ProcessedTimestamp: time.Now(),
-					Error:              cioption.Process.Error,
-				}
-
-				yb, err := yaml.Marshal(cioption)
-
-				if err != nil {
-
-					yb = opt_byte
-				}
-
-				err = pkgdbquery.SetProjectCiOptionByUserIdAndName(cioption.Process.UserId, cioption.Process.ProjectName, string(yb))
+				err = V1PCTL_HandleCiError(&cioption, nil)
 
 				if err != nil {
 
@@ -1098,7 +1091,11 @@ func V1ProjectControlLoop() {
 
 				fail_count += 1
 
-				log.Printf("pctl: skip: error while querying user cluster: %s\n", err.Error())
+				this_error := fmt.Errorf("error while querying user cluster")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
 				continue
 			}
@@ -1109,39 +1106,157 @@ func V1ProjectControlLoop() {
 
 				fail_count += 1
 
-				log.Printf("pctl: skip: error while querying project cis: %s\n", err.Error())
+				this_error := fmt.Errorf("error while querying user project cis")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
 				continue
 			}
 
-			electedCluster := V1GetAllocableClusterId(user_clusters, user_projectcis)
+			electedCluster, err := V1PCTL_ElectCiAllocableClusterId(user_clusters, user_projectcis)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while electing cluster for ci")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			newpci, err := pkgdbquery.SetProjectCi(PROJECTS[cioption.Process.ProjectIndex].ProjectId, electedCluster.ClusterId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while setting project ci")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/project/cluster/ci/alloc", V1MANI)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting main")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			yb, err := yaml.Marshal(cioption)
+
+			if err != nil {
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while preparing main")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			pidx := cioption.Process.ProjectIndex
+
+			v1main.Body["name"] = cioption.Process.ProjectName
+			v1main.Body["git"] = PROJECTS[pidx].ProjectGit
+			v1main.Body["gitid"] = PROJECTS[pidx].ProjectGitId
+			v1main.Body["gitpw"] = PROJECTS[pidx].ProjectGitPw
+			v1main.Body["reg"] = PROJECTS[pidx].ProjectRegistry
+			v1main.Body["regid"] = PROJECTS[pidx].ProjectRegistryId
+			v1main.Body["regpw"] = PROJECTS[pidx].ProjectRegistryPw
+			v1main.Body["cioption"] = string(yb)
+
+			urecord, err := pkgdbquery.GetUserById(cioption.Process.UserId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user name")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			thisKey := urecord.UserName + ":" + electedCluster.ClusterName
+
+			thisAgent, okay := agent_register[thisKey]
+
+			if !okay {
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user name")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
+
+				continue
+
+			}
+
+			err = apiximpl.V1ServerPush(v1main, &thisAgent)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while server push")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
 
 		}
+
+		// push cd
 
 		for i := 0; i < CD_Q_LEN; i++ {
 
 			cdoption := CD_Q[i]
 
-			opt_byte := []byte{}
-
 			if cdoption.Process.Error != nil {
 
-				cdoption.Response = &struct {
-					ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-					Error              error     "yaml:\"error\""
-				}{
-					ProcessedTimestamp: time.Now(),
-					Error:              cdoption.Process.Error,
-				}
-
-				yb, err := yaml.Marshal(cdoption)
-
-				if err != nil {
-
-					yb = opt_byte
-				}
-
-				err = pkgdbquery.SetProjectCdOptionByUserIdAndName(cdoption.Process.UserId, cdoption.Process.ProjectName, string(yb))
+				err = V1PCTL_HandleCdError(&cdoption, nil)
 
 				if err != nil {
 
@@ -1150,6 +1265,235 @@ func V1ProjectControlLoop() {
 					log.Printf("pctl: skip: error while processing cd error: %s", err.Error())
 
 				}
+
+				continue
+			}
+
+			user_clusters, err := pkgdbquery.GetClustersByUserId(cdoption.Process.UserId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while querying user cluster")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			user_projectcds, err := pkgdbquery.GetProjectCdsByProjectId(PROJECTS[cdoption.Process.ProjectIndex].ProjectId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while querying user project cds")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			electedCluster, err := V1PCTL_ElectCdAllocableClusterId(user_clusters, user_projectcds)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while electing cluster for cd")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			var newpcd *pkgresourcedb.DB_Project_CD
+
+			if cdoption.Process.StoredRequest.DependOnCI {
+
+				dependentci, err := pkgdbquery.GetProjectCiRunningByProjectId(PROJECTS[cdoption.Process.ProjectIndex].ProjectId)
+
+				if err != nil {
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while getting dependent ci from cd")
+
+					_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+					continue
+
+				}
+
+				newpcd, err = pkgdbquery.SetProjectCd(PROJECTS[cdoption.Process.ProjectIndex].ProjectId, electedCluster.ClusterId, dependentci.ProjectCiId)
+
+				if err != nil {
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while setting project cd")
+
+					_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+					continue
+
+				}
+
+			} else {
+
+				newpcd, err = pkgdbquery.SetProjectCd(PROJECTS[cdoption.Process.ProjectIndex].ProjectId, electedCluster.ClusterId, -1)
+
+				if err != nil {
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while setting project cd")
+
+					_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+					continue
+
+				}
+
+			}
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while setting project cd")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/project/cluster/cd/alloc", V1MANI)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting main")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			yb, err := yaml.Marshal(cdoption)
+
+			if err != nil {
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while preparing main")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			pidx := cdoption.Process.ProjectIndex
+
+			v1main.Body["name"] = cdoption.Process.ProjectName
+			v1main.Body["git"] = PROJECTS[pidx].ProjectGit
+			v1main.Body["gitid"] = PROJECTS[pidx].ProjectGitId
+			v1main.Body["gitpw"] = PROJECTS[pidx].ProjectGitPw
+			v1main.Body["reg"] = PROJECTS[pidx].ProjectRegistry
+			v1main.Body["regid"] = PROJECTS[pidx].ProjectRegistryId
+			v1main.Body["regpw"] = PROJECTS[pidx].ProjectRegistryPw
+			v1main.Body["cdoption"] = string(yb)
+
+			urecord, err := pkgdbquery.GetUserById(cdoption.Process.UserId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user name")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			thisKey := urecord.UserName + ":" + electedCluster.ClusterName
+
+			thisAgent, okay := agent_register[thisKey]
+
+			if !okay {
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user name")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
+
+				continue
+
+			}
+
+			err = pkgdbquery.SetLifecycleByProjectId(PROJECTS[pidx].ProjectId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while setting lifecycle")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
+
+				continue
+
+			}
+
+			err = apiximpl.V1ServerPush(v1main, &thisAgent)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while server push")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
 				continue
 

@@ -10,6 +10,7 @@ type CdOption struct {
 	Process *struct {
 		StoredRequest CdOption_Request `yaml:"stored_request"`
 		ProjectIndex  int              `yaml:"project_index"`
+		ProjectId     int              `yaml:"project_id"`
 		UserId        int              `yaml:"user_id"`
 		ProjectName   string           `yaml:"project_name"`
 		Error         error            `yaml:"error"`
