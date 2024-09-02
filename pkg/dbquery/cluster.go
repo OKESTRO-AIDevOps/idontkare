@@ -7,6 +7,63 @@ import (
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 )
 
+func GetCluster() ([]pkgresourcedb.DB_Cluster, error) {
+
+	var dbcluster_records []pkgresourcedb.DB_Cluster
+
+	var dbcluster pkgresourcedb.DB_Cluster
+
+	q := `
+	
+		SELECT
+		    cluster_id,
+			user_id,
+			cluster_name,
+			cluster_pub,
+			cluster_connected,
+			cluster_session_key
+		FROM
+			cluster
+
+	
+	`
+
+	a := []any{}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get cluster: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbcluster = pkgresourcedb.DB_Cluster{}
+
+		err = res.Scan(
+			&dbcluster.ClusterId,
+			&dbcluster.UserId,
+			&dbcluster.ClusterName,
+			&dbcluster.ClusterPub,
+			&dbcluster.ClusterConnected,
+			&dbcluster.ClusterSessionKey,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get cluster: row: %s", err.Error())
+		}
+
+		dbcluster_records = append(dbcluster_records, dbcluster)
+	}
+
+	return dbcluster_records, nil
+}
+
 func GetClusterById(id int) (*pkgresourcedb.DB_Cluster, error) {
 
 	var dbcluster_records []pkgresourcedb.DB_Cluster

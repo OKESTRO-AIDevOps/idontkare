@@ -14,12 +14,14 @@ type CiOption struct {
 		UserId        int              `yaml:"user_id"`
 		ProjectName   string           `yaml:"project_name"`
 		LinkToCd      int              `yaml:"link_to_cd"`
-		Error         error            `yaml:"error"`
+		Error         bool             `yaml:"error"`
+		Log           string           `yaml:"log"`
 	} `yaml:"process,omitempty"`
 
 	Response *struct {
 		ProcessedTimestamp time.Time `yaml:"processed_timestamp"`
-		Error              error     `yaml:"error"`
+		Error              bool      `yaml:"error"`
+		Log                string    `yaml:"log"`
 	} `yaml:"response,omitempty"`
 }
 

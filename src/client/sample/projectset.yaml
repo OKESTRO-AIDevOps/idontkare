@@ -1,0 +1,8 @@
+username: sampleusername
+name: sampleproject
+git: github.com/sample/project.git
+gitid: samplegitid
+gitpw: samplegitpw
+reg: registry.github.com/sample/project
+regid: sampleregid
+regpw: sampleregpw

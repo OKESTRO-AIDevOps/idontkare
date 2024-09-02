@@ -20,6 +20,7 @@ type ServerConfig struct {
 	DBName           string `yaml:"db_name"`
 	DBId             string `yaml:"db_id"`
 	DBPw             string `yaml:"db_pw"`
+	ResetDBAtStart   bool   `yaml:"reset_db_at_start"`
 }
 
 func GetServerConfig() (*ServerConfig, error) {

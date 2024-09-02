@@ -193,7 +193,7 @@ func GetProjectsByUserId(user_id int) ([]pkgresourcedb.DB_Project, error) {
 		dbproject = pkgresourcedb.DB_Project{}
 
 		err = res.Scan(
-			&dbproject.UserId,
+			&dbproject.ProjectId,
 			&dbproject.ProjectName,
 			&dbproject.ProjectGit,
 			&dbproject.ProjectGitId,
@@ -396,6 +396,7 @@ func SetProjectCiOptionByUserIdAndName(user_id int, name string, ci_option strin
 
 	
 	`
+
 	a = append(a, ci_option)
 
 	a = append(a, pcheck[pexists].ProjectId)

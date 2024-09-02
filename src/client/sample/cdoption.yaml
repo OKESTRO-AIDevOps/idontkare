@@ -1,0 +1,2 @@
+request:
+  depend_on_ci: false

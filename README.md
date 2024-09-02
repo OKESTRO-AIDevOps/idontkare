@@ -57,6 +57,18 @@ pass: somethingsecret
 
 ./client.out cluster set --username test --name testcluster
 
+# project set 
+
+./client.out project set --from-file $FILE_PATH
+
+# update ci option
+
+./client.out project ci option set --username sampleusername --name sampleproject --path ./sample/cioption.yaml
+
+# update cd option
+
+./client.out project cd option set --username sampleusername --name sampleproject --path ./sample/cdoption.yaml
+
 ```
 
 ### agent example

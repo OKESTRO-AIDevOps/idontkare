@@ -1,11 +1,13 @@
 package ci
 
 const (
-	STATUS_READY     string = "ready"
-	STATUS_RUNNING   string = "running"
-	STATUS_ERROR     string = "error"
-	STATUS_COMPLETED string = "completed"
+	STATUS_READY     CiStatusType = "ready"
+	STATUS_RUNNING   CiStatusType = "running"
+	STATUS_ERROR     CiStatusType = "error"
+	STATUS_COMPLETED CiStatusType = "completed"
 )
+
+type CiStatusType string
 
 type Builder struct {
 	APIVersion string `yaml:"apiVersion"`

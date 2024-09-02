@@ -19,21 +19,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type V1AgentConn struct {
-	C          *websocket.Conn
-	SessionKey []byte
-	Name       string
-	UserName   string
-}
-
 func V1SetApixImpl() {
 
 	agentapiximpl.V1TIMEOUT_MS = AGENT_CONFIG.TimeoutMS
 }
 
-func V1Connect(connect_url string, name string, username string, priv_key *rsa.PrivateKey, mani *pkgresourceapix.V1Manifest) (*V1AgentConn, error) {
+func V1Connect(connect_url string, name string, username string, priv_key *rsa.PrivateKey, mani *pkgresourceapix.V1Manifest) (*agentapiximpl.V1AgentConn, error) {
 
-	var agentConn V1AgentConn
+	var agentConn agentapiximpl.V1AgentConn
 
 	v1mainTmpl, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindAgentRequestPriv, "/cluster/connect", mani)
 
@@ -105,7 +98,7 @@ func V1Connect(connect_url string, name string, username string, priv_key *rsa.P
 		return nil, fmt.Errorf("failed to connect: marshal: %s", err.Error())
 	}
 
-	session_key_b, _ := hex.DecodeString(session_key)
+	session_key_b := []byte(session_key)
 
 	data_b, err := pkgutils.EncryptWithSymmetricKey(chal_key_b, chal_data_b)
 
@@ -159,14 +152,26 @@ func V1Connect(connect_url string, name string, username string, priv_key *rsa.P
 	return &agentConn, nil
 }
 
-func V1HandleAgentPush(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
+func V1HandleAgentPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
-	for {
+	go agentapiximpl.V1CiHandler(acon, mani)
 
-	}
+	log.Printf("started ci handler\n")
+
+	go agentapiximpl.V1CdHandler(acon, mani)
+
+	log.Printf("started cd handler\n")
+
+	go agentapiximpl.V1CiCdHandler(acon, mani)
+
+	log.Printf("started cicd handler\n")
+
+	go agentapiximpl.V1LifecycleHandler(acon, mani)
+
+	log.Printf("started lifecycle handler\n")
 }
 
-func V1HandleServerPush(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) error {
+func V1HandleServerPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V1Manifest) error {
 
 	var errMessage error
 
@@ -269,7 +274,7 @@ func V1Run(connect_url string, name string, username string, key_path string) er
 		return err
 	}
 
-	go V1HandleAgentPush(conn, manifest)
+	V1HandleAgentPush(conn, manifest)
 
 	err = V1HandleServerPush(conn, manifest)
 

@@ -18,10 +18,12 @@ func V1PCTL_HandleCiSuccess(cioption *pkgresourceci.CiOption) error {
 
 	cioption.Response = &struct {
 		ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-		Error              error     "yaml:\"error\""
+		Error              bool      "yaml:\"error\""
+		Log                string    `yaml:"log"`
 	}{
 		ProcessedTimestamp: time.Now(),
-		Error:              nil,
+		Error:              false,
+		Log:                "success",
 	}
 
 	yb, err := yaml.Marshal(cioption)
@@ -48,19 +50,23 @@ func V1PCTL_HandleCiError(cioption *pkgresourceci.CiOption, resp_err error) erro
 	if resp_err == nil {
 		cioption.Response = &struct {
 			ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-			Error              error     "yaml:\"error\""
+			Error              bool      "yaml:\"error\""
+			Log                string    `yaml:"log"`
 		}{
 			ProcessedTimestamp: time.Now(),
 			Error:              cioption.Process.Error,
+			Log:                cioption.Process.Log,
 		}
 
 	} else {
 		cioption.Response = &struct {
 			ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-			Error              error     "yaml:\"error\""
+			Error              bool      "yaml:\"error\""
+			Log                string    `yaml:"log"`
 		}{
 			ProcessedTimestamp: time.Now(),
-			Error:              resp_err,
+			Error:              true,
+			Log:                resp_err.Error(),
 		}
 
 	}
@@ -88,10 +94,12 @@ func V1PCTL_HandleCdSuccess(cdoption *pkgresourcecd.CdOption) error {
 
 	cdoption.Response = &struct {
 		ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-		Error              error     "yaml:\"error\""
+		Error              bool      "yaml:\"error\""
+		Log                string    `yaml:"log"`
 	}{
 		ProcessedTimestamp: time.Now(),
-		Error:              nil,
+		Error:              false,
+		Log:                "success",
 	}
 
 	yb, err := yaml.Marshal(cdoption)
@@ -119,19 +127,23 @@ func V1PCTL_HandleCdError(cdoption *pkgresourcecd.CdOption, resp_err error) erro
 
 		cdoption.Response = &struct {
 			ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-			Error              error     "yaml:\"error\""
+			Error              bool      "yaml:\"error\""
+			Log                string    `yaml:"log"`
 		}{
 			ProcessedTimestamp: time.Now(),
 			Error:              cdoption.Process.Error,
+			Log:                cdoption.Process.Log,
 		}
 
 	} else {
 		cdoption.Response = &struct {
 			ProcessedTimestamp time.Time "yaml:\"processed_timestamp\""
-			Error              error     "yaml:\"error\""
+			Error              bool      "yaml:\"error\""
+			Log                string    `yaml:"log"`
 		}{
 			ProcessedTimestamp: time.Now(),
-			Error:              resp_err,
+			Error:              true,
+			Log:                resp_err.Error(),
 		}
 
 	}
@@ -194,7 +206,7 @@ func V1PCTL_ElectCiAllocableClusterId(user_clusters []pkgresourcedb.DB_Cluster, 
 
 	}
 
-	picked := pkgutils.GetRandIntInRange(0, uclen)
+	picked := pkgutils.GetRandIntInRange(0, uclen-1)
 
 	electedCluster = &validCluster[picked]
 
@@ -242,7 +254,7 @@ func V1PCTL_ElectCdAllocableClusterId(user_clusters []pkgresourcedb.DB_Cluster, 
 
 	}
 
-	picked := pkgutils.GetRandIntInRange(0, uclen)
+	picked := pkgutils.GetRandIntInRange(0, uclen-1)
 
 	electedCluster = &validCluster[picked]
 

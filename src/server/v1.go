@@ -181,7 +181,7 @@ func V1ClientAccept(c *websocket.Conn) error {
 	return nil
 }
 
-func AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
+func V1AgentAccept(c *websocket.Conn) (*pkgresourceauth.AgentRegister, error) {
 
 	var newRegister = make(pkgresourceauth.AgentRegister)
 
@@ -739,7 +739,7 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 
 	defer c.Close()
 
-	new_ar, err := AgentAccept(c)
+	new_ar, err := V1AgentAccept(c)
 
 	if err != nil {
 
@@ -748,21 +748,16 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	thisAgentId := ""
 	thisAgentName := ""
 	thisAgentCluster := ""
-	thisAgentData := pkgresourceauth.AgentData{}
 
-	for k, v := range *new_ar {
+	thisAgentId, thisAgentData, err := V1AgentAdd(new_ar)
 
-		agent_register[k] = v
+	if err != nil {
+		log.Printf("agent accept: add: %s\n", err.Error())
 
-		thisAgentData = v
-
-		thisAgentId = k
+		return
 	}
-
-	agent_address_register[c] = thisAgentId
 
 	this_agent_li := strings.SplitN(thisAgentId, ":", 2)
 
@@ -787,7 +782,16 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err != nil {
 
-			log.Printf("agent handle: agent gone\n")
+			delerr := V1AgentDel(thisAgentId)
+
+			if delerr != nil {
+
+				log.Printf("agent handle: agent gone: failed to delete: %s: %s\n", thisAgentId, delerr.Error())
+
+			} else {
+
+				log.Printf("agent handle: agent gone: successfully deleted: %s\n", thisAgentId)
+			}
 
 			_ = c.Close()
 
@@ -828,6 +832,86 @@ func V1AgentHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func V1AgentAdd(new_ar *pkgresourceauth.AgentRegister) (string, *pkgresourceauth.AgentData, error) {
+
+	thisAgentId := ""
+	thisAgentData := pkgresourceauth.AgentData{}
+
+	for k, v := range *new_ar {
+
+		agent_register[k] = v
+
+		thisAgentData = v
+
+		thisAgentId = k
+
+	}
+
+	this_agent_li := strings.SplitN(thisAgentId, ":", 2)
+
+	thisAgentName := this_agent_li[0]
+	thisAgentCluster := this_agent_li[1]
+
+	urecord, err := pkgdbquery.GetUserByName(thisAgentName)
+
+	if err != nil {
+
+		delete(agent_register, thisAgentId)
+
+		return "", nil, fmt.Errorf("failed to add agent: %s", err.Error())
+	}
+
+	if urecord == nil {
+
+		delete(agent_register, thisAgentId)
+
+		return "", nil, fmt.Errorf("failed to add agent: empty record")
+	}
+
+	err = pkgdbquery.SetClusterConnectedByUserIdAndName(urecord.UserId, thisAgentCluster, 1, thisAgentData.Key)
+
+	if err != nil {
+
+		delete(agent_register, thisAgentId)
+
+		return "", nil, fmt.Errorf("failed to add agent: set cluster: %s", err.Error())
+	}
+
+	return thisAgentId, &thisAgentData, nil
+}
+
+func V1AgentDel(agent_id string) error {
+
+	this_agent_li := strings.SplitN(agent_id, ":", 2)
+
+	thisAgentName := this_agent_li[0]
+	thisAgentCluster := this_agent_li[1]
+
+	urecord, err := pkgdbquery.GetUserByName(thisAgentName)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to del agent: %s", err.Error())
+	}
+
+	if urecord == nil {
+
+		return fmt.Errorf("failed to del agent: empty record")
+	}
+
+	err = pkgdbquery.SetClusterConnectedByUserIdAndName(urecord.UserId, thisAgentCluster, 0, "")
+
+	if err != nil {
+
+		return fmt.Errorf("failed to del agent: set cluster: %s", err.Error())
+	}
+
+	delete(agent_register, agent_id)
+
+	return nil
+
+}
+
 func V1ProjectControlLoop() {
 
 	var FAIL_COUNT_LIMIT int = 100
@@ -861,8 +945,8 @@ func V1ProjectControlLoop() {
 
 		for i := 0; i < PLEN; i++ {
 
-			projectid := PROJECTS[i].ProjectId
-			userid := PROJECTS[i].UserId
+			//projectid := PROJECTS[i].ProjectId
+			//userid := PROJECTS[i].UserId
 
 			cdopt := pkgresourcecd.CdOption{}
 			ciopt := pkgresourceci.CiOption{}
@@ -878,7 +962,7 @@ func V1ProjectControlLoop() {
 
 			if !cdoption_raw.Valid && !cioption_raw.Valid {
 
-				log.Printf("pctl: skip: both null: uid: %d, pid: %d", userid, projectid)
+				//log.Printf("pctl: skip: both null: uid: %d, pid: %d", userid, projectid)
 
 				continue
 
@@ -888,7 +972,7 @@ func V1ProjectControlLoop() {
 
 				if ciopt.Request == nil {
 
-					log.Printf("pctl: skip: ci: already processed: uid: %d, pid: %d", userid, projectid)
+					// log.Printf("pctl: skip: ci: already processed: uid: %d, pid: %d", userid, projectid)
 
 					continue
 				}
@@ -899,22 +983,49 @@ func V1ProjectControlLoop() {
 
 				}
 
-				ciopt.Process = &struct {
-					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
-					ProjectIndex  int                            "yaml:\"project_index\""
-					ProjectId     int                            `yaml:"project_id"`
-					UserId        int                            `yaml:"user_id"`
-					ProjectName   string                         `yaml:"project_name"`
-					LinkToCd      int                            "yaml:\"link_to_cd\""
-					Error         error                          `yaml:"error"`
-				}{
-					StoredRequest: *ciopt.Request,
-					ProjectIndex:  i,
-					ProjectId:     PROJECTS[i].ProjectId,
-					UserId:        PROJECTS[i].UserId,
-					ProjectName:   PROJECTS[i].ProjectName,
-					LinkToCd:      -1,
-					Error:         process_err,
+				if process_err != nil {
+
+					ciopt.Process = &struct {
+						StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LinkToCd      int                            "yaml:\"link_to_cd\""
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *ciopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LinkToCd:      -1,
+						Error:         true,
+						Log:           process_err.Error(),
+					}
+
+				} else {
+					ciopt.Process = &struct {
+						StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LinkToCd      int                            "yaml:\"link_to_cd\""
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *ciopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LinkToCd:      -1,
+						Error:         false,
+						Log:           "",
+					}
+
 				}
 
 				ciopt.Request = nil
@@ -952,20 +1063,49 @@ func V1ProjectControlLoop() {
 
 				}
 
-				cdopt.Process = &struct {
-					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
-					ProjectIndex  int                            "yaml:\"project_index\""
-					ProjectId     int                            `yaml:"project_id"`
-					UserId        int                            `yaml:"user_id"`
-					ProjectName   string                         `yaml:"project_name"`
-					Error         error                          `yaml:"error"`
-				}{
-					StoredRequest: *cdopt.Request,
-					ProjectIndex:  i,
-					ProjectId:     PROJECTS[i].ProjectId,
-					UserId:        PROJECTS[i].UserId,
-					ProjectName:   PROJECTS[i].ProjectName,
-					Error:         process_err,
+				if process_err != nil {
+
+					cdopt.Process = &struct {
+						StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LifecycleId   int                            `yaml:"lifecycle_id"`
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *cdopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LifecycleId:   -1,
+						Error:         true,
+						Log:           process_err.Error(),
+					}
+
+				} else {
+					cdopt.Process = &struct {
+						StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LifecycleId   int                            `yaml:"lifecycle_id"`
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *cdopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LifecycleId:   -1,
+						Error:         false,
+						Log:           "",
+					}
+
 				}
 
 				cdopt.Request = nil
@@ -1004,43 +1144,97 @@ func V1ProjectControlLoop() {
 
 				if should_process_cd == 0 && should_process_ci == 0 {
 
-					log.Printf("pctl: skip: ci cd: already processed")
+					//log.Printf("pctl: skip: ci cd: already processed")
 
 					continue
 				}
 
-				ciopt.Process = &struct {
-					StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
-					ProjectIndex  int                            "yaml:\"project_index\""
-					ProjectId     int                            `yaml:"project_id"`
-					UserId        int                            `yaml:"user_id"`
-					ProjectName   string                         `yaml:"project_name"`
-					LinkToCd      int                            "yaml:\"link_to_cd\""
-					Error         error                          `yaml:"error"`
-				}{
-					StoredRequest: *ciopt.Request,
-					ProjectIndex:  i,
-					ProjectId:     PROJECTS[i].ProjectId,
-					UserId:        PROJECTS[i].UserId,
-					ProjectName:   PROJECTS[i].ProjectName,
-					LinkToCd:      -1,
-					Error:         ciopt_err,
+				if ciopt_err != nil && should_process_ci == 1 {
+
+					ciopt.Process = &struct {
+						StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LinkToCd      int                            "yaml:\"link_to_cd\""
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *ciopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LinkToCd:      -1,
+						Error:         true,
+						Log:           ciopt_err.Error(),
+					}
+				} else if ciopt_err == nil && should_process_ci == 1 {
+
+					ciopt.Process = &struct {
+						StoredRequest pkgresourceci.CiOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LinkToCd      int                            "yaml:\"link_to_cd\""
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *ciopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LinkToCd:      -1,
+						Error:         false,
+						Log:           "",
+					}
 				}
 
-				cdopt.Process = &struct {
-					StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
-					ProjectIndex  int                            "yaml:\"project_index\""
-					ProjectId     int                            `yaml:"project_id"`
-					UserId        int                            `yaml:"user_id"`
-					ProjectName   string                         `yaml:"project_name"`
-					Error         error                          `yaml:"error"`
-				}{
-					StoredRequest: *cdopt.Request,
-					ProjectIndex:  i,
-					ProjectId:     PROJECTS[i].ProjectId,
-					UserId:        PROJECTS[i].UserId,
-					ProjectName:   PROJECTS[i].ProjectName,
-					Error:         cdopt_err,
+				if cdopt_err != nil && should_process_cd == 1 {
+
+					cdopt.Process = &struct {
+						StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LifecycleId   int                            `yaml:"lifecycle_id"`
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *cdopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LifecycleId:   -1,
+						Error:         true,
+						Log:           cdopt_err.Error(),
+					}
+				} else if cdopt_err == nil && should_process_cd == 1 {
+
+					cdopt.Process = &struct {
+						StoredRequest pkgresourcecd.CdOption_Request "yaml:\"stored_request\""
+						ProjectIndex  int                            "yaml:\"project_index\""
+						ProjectId     int                            `yaml:"project_id"`
+						UserId        int                            `yaml:"user_id"`
+						ProjectName   string                         `yaml:"project_name"`
+						LifecycleId   int                            `yaml:"lifecycle_id"`
+						Error         bool                           `yaml:"error"`
+						Log           string                         `yaml:"log"`
+					}{
+						StoredRequest: *cdopt.Request,
+						ProjectIndex:  i,
+						ProjectId:     PROJECTS[i].ProjectId,
+						UserId:        PROJECTS[i].UserId,
+						ProjectName:   PROJECTS[i].ProjectName,
+						LifecycleId:   -1,
+						Error:         false,
+						Log:           "",
+					}
 				}
 
 				ciopt.Request = nil
@@ -1054,9 +1248,16 @@ func V1ProjectControlLoop() {
 
 				}
 
-				CI_Q = append(CI_Q, ciopt)
+				if should_process_ci == 1 {
 
-				CD_Q = append(CD_Q, cdopt)
+					CI_Q = append(CI_Q, ciopt)
+				}
+
+				if should_process_cd == 1 {
+
+					CD_Q = append(CD_Q, cdopt)
+
+				}
 
 			}
 		}
@@ -1070,7 +1271,7 @@ func V1ProjectControlLoop() {
 
 			cioption := CI_Q[i]
 
-			if cioption.Process.Error != nil {
+			if cioption.Process.Error {
 
 				err = V1PCTL_HandleCiError(&cioption, nil)
 
@@ -1156,7 +1357,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCiError(&cioption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1172,7 +1373,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCiError(&cioption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1201,7 +1402,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCiError(&cioption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1220,7 +1421,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCiError(&cioption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
 
@@ -1238,7 +1439,25 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCiError(&cioption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			err = V1PCTL_HandleCiSuccess(&cioption)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while handle ci success")
+
+				_ = V1PCTL_HandleCiError(&cioption, this_error)
+
+				_ = pkgdbquery.SetProjectCiEndById(newpci.ProjectCiId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1254,7 +1473,7 @@ func V1ProjectControlLoop() {
 
 			cdoption := CD_Q[i]
 
-			if cdoption.Process.Error != nil {
+			if cdoption.Process.Error {
 
 				err = V1PCTL_HandleCdError(&cdoption, nil)
 
@@ -1381,6 +1600,26 @@ func V1ProjectControlLoop() {
 				continue
 			}
 
+			lcrecord, err := pkgdbquery.SetLifecycleByProjectId(PROJECTS[cdoption.Process.ProjectIndex].ProjectId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while setting lifecycle")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			cdoption.Process.LifecycleId = lcrecord.LifecycleId
+
 			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/project/cluster/cd/alloc", V1MANI)
 
 			if err != nil {
@@ -1391,7 +1630,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCdError(&cdoption, this_error)
 
-				_ = pkgdbquery.SetProjectCiEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1407,7 +1646,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCdError(&cdoption, this_error)
 
-				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1436,7 +1675,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCdError(&cdoption, this_error)
 
-				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourceci.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1455,25 +1694,7 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCdError(&cdoption, this_error)
 
-				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
-
-				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
-
-				continue
-
-			}
-
-			err = pkgdbquery.SetLifecycleByProjectId(PROJECTS[pidx].ProjectId)
-
-			if err != nil {
-
-				fail_count += 1
-
-				this_error := fmt.Errorf("error while setting lifecycle")
-
-				_ = V1PCTL_HandleCdError(&cdoption, this_error)
-
-				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", fmt.Sprintf("failed to find: %s", thisKey), this_error.Error())
 
@@ -1491,7 +1712,25 @@ func V1ProjectControlLoop() {
 
 				_ = V1PCTL_HandleCdError(&cdoption, this_error)
 
-				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, pkgresourceci.STATUS_ERROR, this_error.Error())
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			err = V1PCTL_HandleCdSuccess(&cdoption)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while handle cd success")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
 
 				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
@@ -1521,6 +1760,18 @@ func V1Run() error {
 	}
 
 	log.Printf("db connected: %s", SERVER_CONFIG.DBAddr)
+
+	if SERVER_CONFIG.ResetDBAtStart {
+
+		err := pkgdbquery.DBReset()
+
+		if err != nil {
+
+			return fmt.Errorf("failed to run: reset db: %s", err.Error())
+		}
+
+		log.Printf("reset db at start!\n")
+	}
 
 	v1mani, err := pkgapix.V1GetManifest()
 
@@ -1555,14 +1806,14 @@ func V1Run() error {
 
 	go func() {
 		http.HandleFunc(SERVER_CONFIG.AgentPath, V1AgentHandler)
-		log.Printf("server for agent started at: %s", listen_addr_client)
+		log.Printf("server for agent started at: %s", listen_addr_client+SERVER_CONFIG.AgentPath)
 		log.Fatal(http.ListenAndServe(listen_addr_agent, nil))
 
 	}()
 
 	http.HandleFunc(SERVER_CONFIG.ClientPath, V1ClientHandler)
 
-	log.Printf("server for client started at: %s", listen_addr_client)
+	log.Printf("server for client started at: %s", listen_addr_client+SERVER_CONFIG.ClientPath)
 
 	log.Fatal(http.ListenAndServeTLS(listen_addr_client, "cert-server/cert.pem", "cert-server/cert-priv.pem", nil))
 

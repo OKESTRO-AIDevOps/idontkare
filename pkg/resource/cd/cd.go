@@ -1,8 +1,10 @@
 package cd
 
 const (
-	STATUS_READY     string = "ready"
-	STATUS_RUNNING   string = "running"
-	STATUS_ERROR     string = "error"
-	STATUS_COMPLETED string = "completed"
+	STATUS_READY     CdStatusType = "ready"
+	STATUS_RUNNING   CdStatusType = "running"
+	STATUS_ERROR     CdStatusType = "error"
+	STATUS_COMPLETED CdStatusType = "completed"
 )
+
+type CdStatusType string
