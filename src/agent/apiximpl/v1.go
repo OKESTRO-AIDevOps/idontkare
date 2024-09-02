@@ -36,6 +36,7 @@ type V1AgentCi struct {
 	RegPw       string
 	CiOption    pkgresourceci.CiOption
 	Status      pkgresourceci.CiStatusType
+	Log         string
 }
 
 type V1AgentCd struct {
@@ -48,6 +49,7 @@ type V1AgentCd struct {
 	RegPw       string
 	CdOption    pkgresourcecd.CdOption
 	Status      pkgresourcecd.CdStatusType
+	Log         string
 }
 
 type V1AgentCiCd struct {
