@@ -102,7 +102,7 @@ func V1ProjectCiLog(username string, clustername string, projectname string, sta
 
 	for i := 0; i < cilen; i++ {
 
-		if cirecord[i].ProjectCiStatus == pkgresourceci.STATUS_RUNNING {
+		if cirecord[i].ProjectCiStatus == string(pkgresourceci.STATUS_RUNNING) {
 
 			ciidx = i
 
@@ -121,11 +121,11 @@ func V1ProjectCiLog(username string, clustername string, projectname string, sta
 		return fmt.Errorf("cluster id not matching")
 	}
 
-	if status == pkgresourceci.STATUS_RUNNING {
+	if status == string(pkgresourceci.STATUS_RUNNING) {
 
 		err = pkgdbquery.SetProjectCiLogById(cirecord[ciidx].ProjectCiId, cilog)
 
-	} else if status == pkgresourceci.STATUS_COMPLETED || status == pkgresourceci.STATUS_ERROR {
+	} else if status == string(pkgresourceci.STATUS_COMPLETED) || status == string(pkgresourceci.STATUS_ERROR) {
 
 		err = pkgdbquery.SetProjectCiEndById(cirecord[ciidx].ProjectCiId, status, cilog)
 
@@ -236,7 +236,7 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 
 	for i := 0; i < cdlen; i++ {
 
-		if cdrecord[i].ProjectCdStatus == pkgresourceci.STATUS_RUNNING {
+		if cdrecord[i].ProjectCdStatus == string(pkgresourceci.STATUS_RUNNING) {
 
 			cdidx = i
 
@@ -255,11 +255,11 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 		return fmt.Errorf("cluster id not matching")
 	}
 
-	if status == pkgresourcecd.STATUS_RUNNING {
+	if status == string(pkgresourcecd.STATUS_RUNNING) {
 
 		err = pkgdbquery.SetProjectCiLogById(cdrecord[cdidx].ProjectCdId, cdlog)
 
-	} else if status == pkgresourcecd.STATUS_COMPLETED || status == pkgresourcecd.STATUS_ERROR {
+	} else if status == string(pkgresourcecd.STATUS_COMPLETED) || status == string(pkgresourcecd.STATUS_ERROR) {
 
 		err = pkgdbquery.SetProjectCiEndById(cdrecord[cdidx].ProjectCdId, status, cdlog)
 

@@ -13,12 +13,15 @@ type CdOption struct {
 		ProjectId     int              `yaml:"project_id"`
 		UserId        int              `yaml:"user_id"`
 		ProjectName   string           `yaml:"project_name"`
-		Error         error            `yaml:"error"`
+		LifecycleId   int              `yaml:"lifecycle_id"`
+		Error         bool             `yaml:"error"`
+		Log           string           `yaml:"log"`
 	} `yaml:"process,omitempty"`
 
 	Response *struct {
 		ProcessedTimestamp time.Time `yaml:"processed_timestamp"`
-		Error              error     `yaml:"error"`
+		Error              bool      `yaml:"error"`
+		Log                string    `yaml:"log"`
 	} `yaml:"response,omitempty"`
 }
 

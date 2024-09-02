@@ -7,6 +7,65 @@ import (
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 )
 
+func GetProjectCi() ([]pkgresourcedb.DB_Project_CI, error) {
+
+	var dbpci_records []pkgresourcedb.DB_Project_CI
+
+	var dbpci pkgresourcedb.DB_Project_CI
+
+	q := `
+	
+		SELECT
+			project_ci_id,
+			project_id,
+			cluster_id,
+			project_ci_status,
+			project_ci_log,
+			project_ci_start,
+			project_ci_end
+		FROM
+			project_ci
+	
+	`
+
+	a := []any{}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project ci: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpci = pkgresourcedb.DB_Project_CI{}
+
+		err = res.Scan(
+			&dbpci.ProjectCiId,
+			&dbpci.ProjectId,
+			&dbpci.ClusterId,
+			&dbpci.ProjectCiStatus,
+			&dbpci.ProjectCiLog,
+			&dbpci.ProjectCiStart,
+			&dbpci.ProjectCiEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project ci: row: %s", err.Error())
+		}
+
+		dbpci_records = append(dbpci_records, dbpci)
+	}
+
+	return dbpci_records, nil
+
+}
+
 func GetProjectCiById(id int) (*pkgresourcedb.DB_Project_CI, error) {
 
 	var dbpci_records []pkgresourcedb.DB_Project_CI

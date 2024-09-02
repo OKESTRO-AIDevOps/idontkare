@@ -5,7 +5,6 @@ import (
 
 	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
-	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,6 +13,7 @@ func V1ProjectClusterCiAlloc(projectname string, git string, gitid string, gitpw
 	// TODO:
 	//   start building
 
+	var agentCi V1AgentCi
 	var ciOption pkgresourceci.CiOption
 
 	cioption_b := []byte(cioption)
@@ -25,7 +25,33 @@ func V1ProjectClusterCiAlloc(projectname string, git string, gitid string, gitpw
 		return fmt.Errorf("failed to unmarshal ci option: %s", err.Error())
 	}
 
-	CI_OPTIONS_Q = append(CI_OPTIONS_Q, ciOption)
+	agentCi.ProjectName = projectname
+	agentCi.Git = git
+	agentCi.GitId = gitid
+	agentCi.GitPw = gitpw
+	agentCi.Reg = reg
+	agentCi.RegId = regid
+	agentCi.RegPw = regpw
+	agentCi.CiOption = ciOption
+
+	if agentCi.CiOption.Process.LinkToCd != -1 {
+
+		err := V1CiCdAdd(&agentCi, nil)
+
+		if err != nil {
+
+			return fmt.Errorf("failed to add to cicd as link exists: %s", err.Error())
+		}
+
+	} else {
+
+		err := V1CiAdd(agentCi)
+
+		if err != nil {
+
+			return fmt.Errorf("faield to add to ci as link doesn't exist: %s", err.Error())
+		}
+	}
 
 	return nil
 }
@@ -35,6 +61,7 @@ func V1ProjectClusterCdAlloc(projectname string, git string, gitid string, gitpw
 	// TODO:
 	//   start deploying
 
+	var agentCd V1AgentCd
 	var cdOption pkgresourcecd.CdOption
 
 	cdoption_b := []byte(cdoption)
@@ -46,28 +73,34 @@ func V1ProjectClusterCdAlloc(projectname string, git string, gitid string, gitpw
 		return fmt.Errorf("failed to unmarshal cd option: %s", err.Error())
 	}
 
-	CD_OPTIONS_Q = append(CD_OPTIONS_Q, cdOption)
+	agentCd.ProjectName = projectname
+	agentCd.Git = git
+	agentCd.GitId = gitid
+	agentCd.GitPw = gitpw
+	agentCd.Reg = reg
+	agentCd.RegId = regid
+	agentCd.RegPw = regpw
+	agentCd.CdOption = cdOption
 
-	return nil
-}
+	if agentCd.CdOption.Process.StoredRequest.DependOnCI {
 
-func V1ProjectLifecycleUpdate(projectname string, lcoption string) error {
+		err := V1CiCdAdd(nil, &agentCd)
 
-	// TODO:
-	//  check if lifecycle exists
+		if err != nil {
 
-	var lcOption pkgresourcelc.LifecycleOption
+			return fmt.Errorf("failed to add cicd dependent on ci: %s", err.Error())
+		}
 
-	lcoption_b := []byte(lcoption)
+	} else {
 
-	err := yaml.Unmarshal(lcoption_b, &lcOption)
+		err := V1CdAdd(agentCd)
 
-	if err != nil {
+		if err != nil {
 
-		return fmt.Errorf("failed to unmarshal lc option: %s", err.Error())
+			return fmt.Errorf("failed to add cd independent of ci: %s", err.Error())
+		}
+
 	}
-
-	LC_OPTIONS_Q = append(LC_OPTIONS_Q, lcOption)
 
 	return nil
 }

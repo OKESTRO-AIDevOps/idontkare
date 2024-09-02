@@ -7,6 +7,67 @@ import (
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 )
 
+func GetProjectCd() ([]pkgresourcedb.DB_Project_CD, error) {
+
+	var dbpcd_records []pkgresourcedb.DB_Project_CD
+
+	var dbpcd pkgresourcedb.DB_Project_CD
+
+	q := `
+	
+		SELECT
+			project_cd_id,
+			project_id,
+			cluster_id,
+			project_ci_id,
+			project_cd_status,
+			project_cd_log,
+			project_cd_start,
+			project_cd_end
+		FROM
+			project_cd
+
+	
+	`
+
+	a := []any{}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get project cd: %s", err.Error())
+
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dbpcd = pkgresourcedb.DB_Project_CD{}
+
+		err = res.Scan(
+			&dbpcd.ProjectCdId,
+			&dbpcd.ProjectId,
+			&dbpcd.ClusterId,
+			&dbpcd.ProjectCiId,
+			&dbpcd.ProjectCdStatus,
+			&dbpcd.ProjectCdLog,
+			&dbpcd.ProjectCdStart,
+			&dbpcd.ProjectCdEnd,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get project cd: row: %s", err.Error())
+		}
+
+		dbpcd_records = append(dbpcd_records, dbpcd)
+	}
+
+	return dbpcd_records, nil
+}
+
 func GetProjectCdById(id int) (*pkgresourcedb.DB_Project_CD, error) {
 
 	var dbpcd_records []pkgresourcedb.DB_Project_CD
@@ -337,10 +398,10 @@ func SetProjectCd(project_id int, cluster_id int, ci_id int) (*pkgresourcedb.DB_
 				project_id,
 				cluster_id,
 				project_ci_id,
-				project_ci_status,
-				project_ci_log,
-				project_ci_start,
-				project_ci_end
+				project_cd_status,
+				project_cd_log,
+				project_cd_start,
+				project_cd_end
 			)
 			VALUES(
 				?,

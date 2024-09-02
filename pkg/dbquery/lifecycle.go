@@ -62,7 +62,9 @@ func GetLifecyclesByProjectId(project_id int) ([]pkgresourcedb.DB_Lifecycle, err
 	return dblifecycle_records, nil
 }
 
-func SetLifecycleByProjectId(project_id int) error {
+func SetLifecycleByProjectId(project_id int) (*pkgresourcedb.DB_Lifecycle, error) {
+
+	var lcrecord pkgresourcedb.DB_Lifecycle
 
 	q := `
 	
@@ -90,10 +92,27 @@ func SetLifecycleByProjectId(project_id int) error {
 
 	if err != nil {
 
-		return fmt.Errorf("failed to set lifecycle by project id: %s", err.Error())
+		return nil, fmt.Errorf("failed to set lifecycle by project id: %s", err.Error())
 	}
 
-	return nil
+	lcrecords, err := GetLifecyclesByProjectId(project_id)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to set lifecycle by project id: new record: %s", err.Error())
+
+	}
+
+	lclen := len(lcrecords)
+
+	if lclen == 0 {
+
+		return nil, fmt.Errorf("failed to set lifecycle by project id: zero record: %s", err.Error())
+	}
+
+	lcrecord = lcrecords[lclen-1]
+
+	return &lcrecord, nil
 
 }
 
