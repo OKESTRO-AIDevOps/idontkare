@@ -24,6 +24,7 @@ import (
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
 	pkgresourcecomm "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/comm"
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
+	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
 	pkgutils "github.com/OKESTRO-AIDevOps/idontkare/pkg/utils"
 	apiximpl "github.com/OKESTRO-AIDevOps/idontkare/src/server/apiximpl"
 	"github.com/gorilla/websocket"
@@ -1063,6 +1064,52 @@ func V1ProjectControlLoop() {
 
 				}
 
+				port_count := 0
+
+				for k, v := range cdopt.Request.Expose {
+
+					if k > 32767 || k < 30000 {
+
+						if process_err != nil {
+
+							process_err = fmt.Errorf("pctl: expose out of range + %s ", process_err.Error())
+
+						} else {
+
+							process_err = fmt.Errorf("pctl: expose out of range")
+
+						}
+					}
+
+					if v < 1 || v > 65535 {
+
+						if process_err != nil {
+
+							process_err = fmt.Errorf("pctl: invalid port value + %s ", process_err.Error())
+
+						} else {
+
+							process_err = fmt.Errorf("pctl: invalid port value")
+
+						}
+
+					}
+
+					port_count += 1
+
+				}
+
+				if port_count == 0 {
+
+					if process_err != nil {
+						process_err = fmt.Errorf("pctl: no port provided + %s ", process_err.Error())
+
+					} else {
+						process_err = fmt.Errorf("pctl: no port provided")
+
+					}
+				}
+
 				if process_err != nil {
 
 					cdopt.Process = &struct {
@@ -1147,6 +1194,49 @@ func V1ProjectControlLoop() {
 					//log.Printf("pctl: skip: ci cd: already processed")
 
 					continue
+				}
+
+				port_count := 0
+				for k, v := range cdopt.Request.Expose {
+
+					if k > 32767 || k < 30000 {
+
+						if cdopt_err != nil {
+
+							cdopt_err = fmt.Errorf("pctl: expose out of range + %s ", cdopt_err.Error())
+
+						} else {
+
+							cdopt_err = fmt.Errorf("pctl: expose out of range")
+
+						}
+					}
+
+					if v < 1 || v > 65535 {
+
+						if cdopt_err != nil {
+
+							cdopt_err = fmt.Errorf("pctl: invalid port value + %s ", cdopt_err.Error())
+
+						} else {
+
+							cdopt_err = fmt.Errorf("pctl: invalid port value")
+
+						}
+
+					}
+
+				}
+
+				if port_count == 0 {
+
+					if cdopt_err != nil {
+						cdopt_err = fmt.Errorf("pctl: no port provided + %s ", cdopt_err.Error())
+
+					} else {
+						cdopt_err = fmt.Errorf("pctl: no port provided")
+
+					}
 				}
 
 				if ciopt_err != nil && should_process_ci == 1 {
@@ -1488,6 +1578,21 @@ func V1ProjectControlLoop() {
 				continue
 			}
 
+			user_record, err := pkgdbquery.GetUserById(cdoption.Process.UserId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while querying user")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
 			user_clusters, err := pkgdbquery.GetClustersByUserId(cdoption.Process.UserId)
 
 			if err != nil {
@@ -1600,7 +1705,80 @@ func V1ProjectControlLoop() {
 				continue
 			}
 
-			lcrecord, err := pkgdbquery.SetLifecycleByProjectId(PROJECTS[cdoption.Process.ProjectIndex].ProjectId)
+			var service pkgresourcecd.NodePort
+
+			var service_ports = make([]pkgresourcecd.NodePort_Ports, 0)
+
+			var container_ports = make([]pkgresourcecd.Deployment_Containers_Ports, 0)
+
+			for k, v := range cdoption.Process.StoredRequest.Expose {
+
+				service_port := pkgresourcecd.NodePort_Ports{
+					NodePort:   k,
+					Port:       v,
+					TargetPort: v,
+				}
+
+				container_port := pkgresourcecd.Deployment_Containers_Ports{
+					ContainerPort: v,
+				}
+
+				service_ports = append(service_ports, service_port)
+
+				container_ports = append(container_ports, container_port)
+
+			}
+
+			service.Kind = "Service"
+			service.APIVersion = "v1"
+			service.Metadata.Name = cdoption.Process.ProjectName
+			service.Spec.Type = "NodePort"
+			service.Spec.Selector.App = cdoption.Process.ProjectName
+			service.Spec.Ports = service_ports
+
+			cdoption.Service = &service
+
+			var deployment pkgresourcecd.Deployment
+
+			var deployment_container = []pkgresourcecd.Deployment_Containers{
+				{
+					Name:            cdoption.Process.ProjectName,
+					Image:           PROJECTS[cdoption.Process.ProjectIndex].ProjectRegistry,
+					ImagePullPolicy: "Always",
+					Ports:           container_ports,
+				},
+			}
+
+			var deployment_secret = []pkgresourcecd.Deployment_ImagePullSecrets{
+				{
+					Name: cdoption.Process.ProjectName,
+				},
+			}
+
+			deployment.Kind = "Deployment"
+			deployment.APIVersion = "v1"
+			deployment.Metadata.Name = cdoption.Process.ProjectName
+			deployment.Spec.Selector.MatchLabels.App = cdoption.Process.ProjectName
+			deployment.Spec.Replicas = 1
+			deployment.Spec.Template.Metadata.Labels.App = cdoption.Process.ProjectName
+			deployment.Spec.Template.Spec.ImagePullSecrets = deployment_secret
+			deployment.Spec.Template.Spec.Containers = deployment_container
+
+			cdoption.Deployment = &deployment
+
+			var newlc pkgresourcelc.LifecycleManifest
+
+			newlc.Service = &service
+			newlc.Deployment = &deployment
+
+			newlc.Process.ProjectId = cdoption.Process.ProjectId
+			newlc.Process.ProjectName = cdoption.Process.ProjectName
+			newlc.Process.UserId = cdoption.Process.UserId
+			newlc.Process.UserName = user_record.UserName
+			newlc.Process.ClusterId = electedCluster.ClusterId
+			newlc.Process.ClusterName = electedCluster.ClusterName
+
+			err = pkgdbquery.SetLifecycleByProjectId(PROJECTS[cdoption.Process.ProjectIndex].ProjectId)
 
 			if err != nil {
 
@@ -1618,7 +1796,62 @@ func V1ProjectControlLoop() {
 
 			}
 
+			lcrecord, err := pkgdbquery.GetLifecycleRunningByProjectId(cdoption.Process.ProjectId)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting lifecycle")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
 			cdoption.Process.LifecycleId = lcrecord.LifecycleId
+
+			newlc.Process.LifecylcleId = lcrecord.LifecycleId
+
+			lc_b, err := yaml.Marshal(newlc)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while marshalling lifecycle")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			err = pkgdbquery.SetLifecycleManifestByLifecycleId(lcrecord.LifecycleId, string(lc_b))
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while saving lifecycle")
+
+				_ = V1PCTL_HandleCdError(&cdoption, this_error)
+
+				_ = pkgdbquery.SetProjectCdEndById(newpcd.ProjectCdId, string(pkgresourcecd.STATUS_ERROR), this_error.Error())
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
 
 			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/project/cluster/cd/alloc", V1MANI)
 

@@ -469,7 +469,7 @@ func SetProjectCdLogById(id int, cd_log string) error {
 	a := []any{
 		pkgresourcecd.STATUS_RUNNING,
 		cd_log,
-		check.ProjectCdId,
+		id,
 	}
 
 	err = DbExec(q, a)
@@ -513,7 +513,7 @@ func SetProjectCdEndById(id int, cd_status string, cd_log string) error {
 	a := []any{
 		cd_status,
 		cd_log,
-		check.ProjectCdId,
+		id,
 	}
 
 	err = DbExec(q, a)

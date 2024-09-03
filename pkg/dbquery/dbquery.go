@@ -57,15 +57,11 @@ func DbExec(query string, args []any) error {
 		return fmt.Errorf("db exec: %s", err.Error())
 	}
 
-	count, err := result.RowsAffected()
+	_, err = result.RowsAffected()
 
 	if err != nil {
 
 		return fmt.Errorf("db exec: rows: %s", err.Error())
-	}
-
-	if count < 1 {
-		return fmt.Errorf("db exec: 0 affected")
 	}
 
 	return nil

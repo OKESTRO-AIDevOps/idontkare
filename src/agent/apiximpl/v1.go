@@ -2,6 +2,7 @@ package apiximpl
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -24,6 +25,7 @@ type V1AgentConn struct {
 	SessionKey []byte
 	Name       string
 	UserName   string
+	Lock       sync.Mutex
 }
 
 type V1AgentCi struct {
@@ -37,6 +39,7 @@ type V1AgentCi struct {
 	CiOption    pkgresourceci.CiOption
 	Status      pkgresourceci.CiStatusType
 	Log         string
+	BuildLog    string
 }
 
 type V1AgentCd struct {
@@ -66,6 +69,32 @@ var CI_OPTIONS_Q = make([]V1AgentCi, 0)
 var CD_OPTIONS_Q = make([]V1AgentCd, 0)
 var CICD_PIPE_Q = make([]V1AgentCiCd, 0)
 var LC_MANIFEST_Q = make([]pkgresourcelc.LifecycleManifest, 0)
+
+func V1CreateCache() error {
+
+	err := os.MkdirAll(".cache", 0777)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to create .cache")
+	}
+
+	return nil
+}
+
+func V1SaveToCache(filename string, filedata []byte) (string, error) {
+
+	fullPath := ".cache/" + filename
+
+	err := os.WriteFile(fullPath, filedata, 0644)
+
+	if err != nil {
+
+		return "", fmt.Errorf("failed to save to cache: %s", err.Error())
+	}
+
+	return fullPath, nil
+}
 
 func V1AgentRequestCtl(v1main *pkgresourceapix.V1Main, c *websocket.Conn, sess_key []byte) (*pkgresourceapix.V1ResultData, error) {
 
@@ -246,6 +275,40 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
 			return fmt.Errorf("failed server push: cd alloc: %s", err.Error())
 		}
 
+	}
+
+	return nil
+
+}
+
+func V1AgentPush(v1main *pkgresourceapix.V1Main, acon *V1AgentConn) error {
+
+	acon.Lock.Lock()
+
+	defer acon.Lock.Unlock()
+
+	var req pkgresourcecomm.CommJSON
+
+	yb, err := yaml.Marshal(v1main)
+
+	if err != nil {
+
+		return fmt.Errorf("failed agent push: marshal: %s", err.Error())
+	}
+
+	enc_b, err := pkgcomm.CommDataEncrypt(yb, acon.SessionKey)
+
+	if err != nil {
+		return fmt.Errorf("failed agent push: encrypt: %s", err.Error())
+	}
+
+	req.Data = []byte(enc_b)
+
+	err = acon.C.WriteJSON(req)
+
+	if err != nil {
+
+		return fmt.Errorf("failed agent push: write: %s", err.Error())
 	}
 
 	return nil

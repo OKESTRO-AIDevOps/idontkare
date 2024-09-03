@@ -33,6 +33,7 @@ func V1ProjectClusterCiAlloc(projectname string, git string, gitid string, gitpw
 	agentCi.RegId = regid
 	agentCi.RegPw = regpw
 	agentCi.CiOption = ciOption
+	agentCi.Status = pkgresourceci.STATUS_READY
 
 	if agentCi.CiOption.Process.LinkToCd != -1 {
 
@@ -81,6 +82,7 @@ func V1ProjectClusterCdAlloc(projectname string, git string, gitid string, gitpw
 	agentCd.RegId = regid
 	agentCd.RegPw = regpw
 	agentCd.CdOption = cdOption
+	agentCd.Status = pkgresourcecd.STATUS_READY
 
 	if agentCd.CdOption.Process.StoredRequest.DependOnCI {
 
