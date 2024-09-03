@@ -102,7 +102,7 @@ func V1ProjectCiLog(username string, clustername string, projectname string, sta
 
 	for i := 0; i < cilen; i++ {
 
-		if cirecord[i].ProjectCiStatus == string(pkgresourceci.STATUS_RUNNING) {
+		if !cirecord[i].ProjectCiEnd.Valid {
 
 			ciidx = i
 
@@ -121,7 +121,7 @@ func V1ProjectCiLog(username string, clustername string, projectname string, sta
 		return fmt.Errorf("cluster id not matching")
 	}
 
-	if status == string(pkgresourceci.STATUS_RUNNING) {
+	if status == string(pkgresourceci.STATUS_RUNNING) || status == string(pkgresourceci.STATUS_READY) {
 
 		err = pkgdbquery.SetProjectCiLogById(cirecord[ciidx].ProjectCiId, cilog)
 
@@ -236,7 +236,7 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 
 	for i := 0; i < cdlen; i++ {
 
-		if cdrecord[i].ProjectCdStatus == string(pkgresourceci.STATUS_RUNNING) {
+		if !cdrecord[i].ProjectCdEnd.Valid {
 
 			cdidx = i
 
@@ -255,7 +255,7 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 		return fmt.Errorf("cluster id not matching")
 	}
 
-	if status == string(pkgresourcecd.STATUS_RUNNING) {
+	if status == string(pkgresourcecd.STATUS_RUNNING) || status == string(pkgresourcecd.STATUS_READY) {
 
 		err = pkgdbquery.SetProjectCiLogById(cdrecord[cdidx].ProjectCdId, cdlog)
 

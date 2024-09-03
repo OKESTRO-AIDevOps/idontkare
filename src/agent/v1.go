@@ -247,6 +247,12 @@ func V1Run(connect_url string, name string, username string, key_path string) er
 
 	V1SetApixImpl()
 
+	err := agentapiximpl.V1CreateCache()
+
+	if err != nil {
+		return fmt.Errorf("failed to run: cache: %s", err.Error())
+	}
+
 	manifest, err := pkgapix.V1GetManifest()
 
 	if err != nil {

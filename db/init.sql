@@ -88,6 +88,7 @@ CREATE TABLE lifecycle (
 
     lifecycle_id INT NOT NULL AUTO_INCREMENT,
     project_id INT,
+    lifecycle_manifest TEXT,
     lifecycle_report TEXT,
     lifecycle_start TIMESTAMP(3),
     PRIMARY KEY (lifecycle_id)

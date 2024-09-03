@@ -64,8 +64,9 @@ type DB_Project_CD struct {
 }
 
 type DB_Lifecycle struct {
-	LifecycleId     int            `json:"lifecycle_id"`
-	ProjectId       int            `json:"project_id"`
-	LifecycleReport sql.NullString `json:"lifecycle_report"`
-	LifecycleStart  time.Time      `json:"lifecycle_start"`
+	LifecycleId       int            `json:"lifecycle_id"`
+	ProjectId         int            `json:"project_id"`
+	LifecycleManifest sql.NullString `json:"lifecycle_manifest"`
+	LifecycleReport   sql.NullString `json:"lifecycle_report"`
+	LifecycleStart    time.Time      `json:"lifecycle_start"`
 }

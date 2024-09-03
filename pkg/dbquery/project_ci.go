@@ -457,7 +457,7 @@ func SetProjectCiLogById(id int, ci_log string) error {
 	a := []any{
 		pkgresourceci.STATUS_RUNNING,
 		ci_log,
-		check.ProjectCiId,
+		id,
 	}
 
 	err = DbExec(q, a)
@@ -501,7 +501,7 @@ func SetProjectCiEndById(id int, ci_status string, ci_log string) error {
 	a := []any{
 		ci_status,
 		ci_log,
-		check.ProjectCiId,
+		id,
 	}
 
 	err = DbExec(q, a)

@@ -1,11 +1,18 @@
 package apiximpl
 
 import (
+	"bytes"
 	"log"
+	"os/exec"
+	"strings"
+	"time"
 
+	pkgapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/apix"
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
 	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
+	pkgutils "github.com/OKESTRO-AIDevOps/idontkare/pkg/utils"
+	"gopkg.in/yaml.v3"
 )
 
 func V1CiHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
@@ -20,13 +27,17 @@ func V1CiHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 			if CI_OPTIONS_Q[i].Status == pkgresourceci.STATUS_READY {
 
-				go V1CiHandler_BuildStart(&CI_OPTIONS_Q[i])
+				CI_OPTIONS_Q[i].Status = pkgresourceci.STATUS_RUNNING
+
+				go V1CiHandler_BuildStart(i)
 
 			} else if CI_OPTIONS_Q[i].Status == pkgresourceci.STATUS_RUNNING {
 
-				V1CiHandler_BuildReport(&CI_OPTIONS_Q[i])
+				V1CiHandler_BuildReport(i, mani, acon)
 
 			} else {
+
+				V1CiHandler_BuildReport(i, mani, acon)
 
 				term_list = append(term_list, i)
 
@@ -45,11 +56,308 @@ func V1CiHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 }
 
-func V1CiHandler_BuildStart(agent_ci *V1AgentCi) {
+func V1CiHandler_BuildStart(aidx int) {
+
+	bid, _ := pkgutils.RandomHex(8)
+
+	v_repoaddr := pkgresourceci.BUILD_PROTOCOL + CI_OPTIONS_Q[aidx].Git
+	repo_id := CI_OPTIONS_Q[aidx].GitId
+	repo_pw := CI_OPTIONS_Q[aidx].GitPw
+	v_regaddr := CI_OPTIONS_Q[aidx].Reg
+	reg_id := CI_OPTIONS_Q[aidx].RegId
+	reg_pw := CI_OPTIONS_Q[aidx].RegPw
+
+	ns_bid := "npia-build-ns-" + bid
+	sec_bid := "npia-build-secret-" + bid
+	pod_bid := "npia-build-pod-" + bid
+
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+
+	cmd := exec.Command("kubectl", "create", "namespace", ns_bid)
+
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+
+	err := cmd.Run()
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CI_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	docker_server := "--docker-server=" + v_regaddr
+	docker_uname := "--docker-username=" + reg_id
+	docker_pword := "--docker-password=" + reg_pw
+
+	cmd = exec.Command("kubectl", "-n", ns_bid, "create", "secret", "docker-registry", sec_bid, docker_server, docker_uname, docker_pword)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CI_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	kb := pkgresourceci.Builder{}
+
+	kb_c := pkgresourceci.Builder_Container{}
+
+	kb_c_vm := pkgresourceci.Builder_Container_VolumeMount{}
+
+	kb_c_e1 := pkgresourceci.Builder_Container_Env{}
+	kb_c_e2 := pkgresourceci.Builder_Container_Env{}
+
+	kb_v := pkgresourceci.Builder_Volume{}
+
+	kb_v_i := pkgresourceci.Builder_Volume_Item{}
+
+	kb.APIVersion = "v1"
+	kb.Kind = "Pod"
+	kb.Metadata.Name = pod_bid
+	kb.Spec.RestartPolicy = "Never"
+
+	kb_c.Name = pod_bid
+	kb_c.Image = pkgresourceci.BUILD_EXECUTOR
+	kb_c.Args = append(kb_c.Args, "--dockerfile="+pkgresourceci.BUILD_FILE_DEAFULT)
+	kb_c.Args = append(kb_c.Args, "--context="+v_repoaddr)
+	kb_c.Args = append(kb_c.Args, "--destination="+v_regaddr)
+
+	kb_c_vm.MountPath = "/kaniko/.docker"
+	kb_c_vm.Name = "kaniko-secret"
+
+	kb_c_e1.Name = "GIT_USERNAME"
+	kb_c_e1.Value = repo_id
+
+	kb_c_e2.Name = "GIT_PASSWORD"
+	kb_c_e2.Value = repo_pw
+
+	kb_v.Name = "kaniko-secret"
+	kb_v.Secret.SecretName = sec_bid
+
+	kb_v_i.Key = ".dockerconfigjson"
+	kb_v_i.Path = "config.json"
+
+	kb_v.Secret.Items = append(kb_v.Secret.Items, kb_v_i)
+
+	kb_c.Env = append(kb_c.Env, kb_c_e1)
+	kb_c.Env = append(kb_c.Env, kb_c_e2)
+
+	kb_c.VolumeMounts = append(kb_c.VolumeMounts, kb_c_vm)
+
+	kb.Spec.Containers = append(kb.Spec.Containers, kb_c)
+	kb.Spec.Volumes = append(kb.Spec.Volumes, kb_v)
+
+	yb, err := yaml.Marshal(kb)
+
+	if err != nil {
+		CI_OPTIONS_Q[aidx].Log = err.Error()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+	}
+
+	build_yaml, err := V1SaveToCache(bid+".yaml", yb)
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log = err.Error()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	}
+
+	cmd = exec.Command("kubectl", "-n", ns_bid, "apply", "-f", build_yaml)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CI_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	for {
+
+		outBuf = bytes.Buffer{}
+		errBuf = bytes.Buffer{}
+
+		cmd = exec.Command("kubectl", "-n", ns_bid, "get", "pod", pod_bid, "--no-headers")
+
+		cmd.Stdout = &outBuf
+
+		cmd.Stderr = &errBuf
+
+		err = cmd.Run()
+
+		if err != nil {
+
+			CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+			CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+			return
+		}
+
+		stdout_str := outBuf.String()
+		_ = errBuf.String()
+
+		if strings.Contains(stdout_str, "Completed") {
+
+			break
+		}
+
+		if strings.Contains(stdout_str, "Error") {
+
+			break
+		}
+
+		outBuf = bytes.Buffer{}
+
+		errBuf = bytes.Buffer{}
+
+		cmd = exec.Command("kubectl", "-n", ns_bid, "logs", pod_bid)
+
+		cmd.Stdout = &outBuf
+
+		cmd.Stderr = &errBuf
+
+		err = cmd.Run()
+
+		if err != nil {
+
+			continue
+		}
+
+		stdout_str = outBuf.String()
+		_ = errBuf.String()
+
+		CI_OPTIONS_Q[aidx].BuildLog = stdout_str
+
+		time.Sleep(time.Millisecond * 100)
+
+	}
+
+	outBuf = bytes.Buffer{}
+
+	errBuf = bytes.Buffer{}
+
+	cmd = exec.Command("kubectl", "-n", ns_bid, "logs", pod_bid)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CI_OPTIONS_Q[aidx].BuildLog = outBuf.String()
+
+	}
+
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	cmd = exec.Command("kubectl", "delete", "namespace", ns_bid)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CI_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CI_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	CI_OPTIONS_Q[aidx].Status = pkgresourceci.STATUS_COMPLETED
 
 }
 
-func V1CiHandler_BuildReport(agent_ci *V1AgentCi) {
+func V1CiHandler_BuildReport(aidx int, mani *pkgresourceapix.V1Manifest, acon *V1AgentConn) {
+
+	v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindAgentPush, "/project/ci/log", mani)
+
+	if err != nil {
+
+		log.Printf("failed to report build: %s\n", err.Error())
+
+		return
+	}
+
+	v1main.Body["name"] = CI_OPTIONS_Q[aidx].ProjectName
+	v1main.Body["status"] = string(CI_OPTIONS_Q[aidx].Status)
+	v1main.Body["log"] = CI_OPTIONS_Q[aidx].Log + pkgresourceci.BUILD_LOG_SEP + CI_OPTIONS_Q[aidx].BuildLog
+
+	err = V1AgentPush(v1main, acon)
+
+	if err != nil {
+
+		log.Printf("failed to report build: agent push: %s", err.Error())
+	}
+
+	return
 
 }
 
@@ -65,13 +373,17 @@ func V1CdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 			if CD_OPTIONS_Q[i].Status == pkgresourcecd.STATUS_READY {
 
+				CD_OPTIONS_Q[i].Status = pkgresourcecd.STATUS_RUNNING
+
 				go V1CdHandler_DeployStart(&CD_OPTIONS_Q[i])
 
 			} else if CD_OPTIONS_Q[i].Status == pkgresourcecd.STATUS_RUNNING {
 
-				V1CdHandler_DeployReport(&CD_OPTIONS_Q[i])
+				V1CdHandler_DeployReport(&CD_OPTIONS_Q[i], mani, acon)
 
 			} else {
+
+				V1CdHandler_DeployReport(&CD_OPTIONS_Q[i], mani, acon)
 
 				term_list = append(term_list, i)
 			}
@@ -93,7 +405,7 @@ func V1CdHandler_DeployStart(agent_cd *V1AgentCd) {
 
 }
 
-func V1CdHandler_DeployReport(agent_cd *V1AgentCd) {
+func V1CdHandler_DeployReport(agent_cd *V1AgentCd, mani *pkgresourceapix.V1Manifest, acon *V1AgentConn) {
 
 }
 
@@ -115,21 +427,29 @@ func V1CiCdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 			if CICD_PIPE_Q[i].Ci.Status == pkgresourceci.STATUS_READY {
 
-				go V1CiHandler_BuildStart(CICD_PIPE_Q[i].Ci)
+				CICD_PIPE_Q[i].Ci.Status = pkgresourceci.STATUS_RUNNING
+
+				go V1CiHandler_BuildStart(i)
 
 			} else if CICD_PIPE_Q[i].Ci.Status == pkgresourceci.STATUS_RUNNING {
 
-				V1CiHandler_BuildReport(CICD_PIPE_Q[i].Ci)
+				V1CiHandler_BuildReport(i, mani, acon)
 
 			} else if CICD_PIPE_Q[i].Cd.Status == pkgresourcecd.STATUS_READY {
+
+				CICD_PIPE_Q[i].Cd.Status = pkgresourcecd.STATUS_RUNNING
+
+				V1CiHandler_BuildReport(i, mani, acon)
 
 				go V1CdHandler_DeployStart(CICD_PIPE_Q[i].Cd)
 
 			} else if CICD_PIPE_Q[i].Cd.Status == pkgresourcecd.STATUS_RUNNING {
 
-				V1CdHandler_DeployReport(CICD_PIPE_Q[i].Cd)
+				V1CdHandler_DeployReport(CICD_PIPE_Q[i].Cd, mani, acon)
 
 			} else {
+
+				V1CdHandler_DeployReport(CICD_PIPE_Q[i].Cd, mani, acon)
 
 				term_list = append(term_list, i)
 			}

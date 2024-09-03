@@ -7,6 +7,14 @@ const (
 	STATUS_COMPLETED CiStatusType = "completed"
 )
 
+var BUILD_PROTOCOL string = "git://"
+
+var BUILD_EXECUTOR string = "gcr.io/kaniko-project/executor:latest"
+
+var BUILD_FILE_DEAFULT string = "Dockerfile"
+
+var BUILD_LOG_SEP string = "\n===========BUILD LOG==========\n"
+
 type CiStatusType string
 
 type Builder struct {
