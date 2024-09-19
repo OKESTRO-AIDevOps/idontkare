@@ -6,6 +6,62 @@ import (
 	pkgresourcedb "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/db"
 )
 
+func GetLifecycle() ([]pkgresourcedb.DB_Lifecycle, error) {
+
+	var dblifecycle_records []pkgresourcedb.DB_Lifecycle
+
+	var dblifecycle pkgresourcedb.DB_Lifecycle
+
+	q := `
+	
+		SELECT
+			lifecycle_id,
+			project_id,
+			lifecycle_manifest,
+			lifecycle_report,
+			lifecycle_start
+		FROM
+			lifecycle
+	
+	
+	`
+
+	a := []any{}
+
+	res, err := DbQuery(q, a)
+
+	if err != nil {
+
+		return nil, fmt.Errorf("failed to get lifecycle: %s", err.Error())
+	}
+
+	defer res.Close()
+
+	for res.Next() {
+
+		dblifecycle = pkgresourcedb.DB_Lifecycle{}
+
+		err = res.Scan(
+			&dblifecycle.LifecycleId,
+			&dblifecycle.ProjectId,
+			&dblifecycle.LifecycleManifest,
+			&dblifecycle.LifecycleReport,
+			&dblifecycle.LifecycleStart,
+		)
+
+		if err != nil {
+
+			return nil, fmt.Errorf("failed to get lifecycle: %s", err.Error())
+		}
+
+		dblifecycle_records = append(dblifecycle_records, dblifecycle)
+
+	}
+
+	return dblifecycle_records, nil
+
+}
+
 func GetLifecyclesByProjectId(project_id int) ([]pkgresourcedb.DB_Lifecycle, error) {
 
 	var dblifecycle_records []pkgresourcedb.DB_Lifecycle

@@ -79,6 +79,18 @@ main:
       name: required
       path: required 
 
+  - kind: client.request
+    path: /lifecycle/manifest/set
+    head:
+      help:
+        username: "user name"
+        project: "project name"
+        path: "lifecycle manifest file path"
+    body:
+      username: required
+      project: required
+      path: required 
+
   - kind: agent.request.priv
     path: /cluster/connect
     head:
@@ -177,3 +189,22 @@ main:
       regpw: required
       cdoption: required
 
+  - kind: server.push
+    path: /lifecycle/manifest/cluster/alloc
+    head:
+      help:
+        name: "project name"
+        manifest: "lifecycle text"
+    body:
+      name: required
+      manifest: required
+
+  - kind: server.push
+    path: /lifecycle/manifest/cluster/free
+    head:
+      help:
+        name: "project name"
+        manifest: "lifecycle text"
+    body:
+      name: required
+      manifest: required
