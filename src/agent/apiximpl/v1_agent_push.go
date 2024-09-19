@@ -2,6 +2,7 @@ package apiximpl
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"os/exec"
 	"strings"
@@ -375,15 +376,15 @@ func V1CdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 				CD_OPTIONS_Q[i].Status = pkgresourcecd.STATUS_RUNNING
 
-				go V1CdHandler_DeployStart(&CD_OPTIONS_Q[i])
+				go V1CdHandler_DeployStart(i)
 
 			} else if CD_OPTIONS_Q[i].Status == pkgresourcecd.STATUS_RUNNING {
 
-				V1CdHandler_DeployReport(&CD_OPTIONS_Q[i], mani, acon)
+				V1CdHandler_DeployReport(i, mani, acon)
 
 			} else {
 
-				V1CdHandler_DeployReport(&CD_OPTIONS_Q[i], mani, acon)
+				V1CdHandler_DeployReport(i, mani, acon)
 
 				term_list = append(term_list, i)
 			}
@@ -401,11 +402,180 @@ func V1CdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 }
 
-func V1CdHandler_DeployStart(agent_cd *V1AgentCd) {
+func V1CdHandler_DeployStart(aidx int) {
+
+	namespace := CD_OPTIONS_Q[aidx].ProjectName
+
+	project_name := CD_OPTIONS_Q[aidx].ProjectName
+
+	service := CD_OPTIONS_Q[aidx].CdOption.Service
+
+	deployment := CD_OPTIONS_Q[aidx].CdOption.Deployment
+
+	v_regaddr := CD_OPTIONS_Q[aidx].Reg
+	reg_id := CD_OPTIONS_Q[aidx].RegId
+	reg_pw := CD_OPTIONS_Q[aidx].RegPw
+
+	service_b, err := yaml.Marshal(service)
+
+	deployment_b, err := yaml.Marshal(deployment)
+
+	service_file_name := fmt.Sprintf("service-%s.yaml", namespace)
+
+	deployment_file_name := fmt.Sprintf("deployment-%s.yaml", namespace)
+
+	service_yaml, err := V1SaveToCache(service_file_name, service_b)
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += err.Error()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	}
+
+	deployment_yaml, err := V1SaveToCache(deployment_file_name, deployment_b)
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += err.Error()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	}
+
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+
+	cmd := exec.Command("kubectl", "create", "namespace", namespace)
+
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CD_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	docker_server := "--docker-server=" + v_regaddr
+	docker_uname := "--docker-username=" + reg_id
+	docker_pword := "--docker-password=" + reg_pw
+
+	cmd = exec.Command("kubectl", "-n", namespace, "create", "secret", "docker-registry", project_name, docker_server, docker_uname, docker_pword)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CD_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	cmd = exec.Command("kubectl", "-n", namespace, "apply", "-f", service_yaml)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CD_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	outBuf = bytes.Buffer{}
+	errBuf = bytes.Buffer{}
+
+	cmd = exec.Command("kubectl", "-n", namespace, "apply", "-f", deployment_yaml)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err = cmd.Run()
+
+	if err != nil {
+
+		CD_OPTIONS_Q[aidx].Log += errBuf.String()
+
+		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
+
+		return
+
+	} else {
+
+		CD_OPTIONS_Q[aidx].Log += outBuf.String()
+
+	}
+
+	CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_COMPLETED
 
 }
 
-func V1CdHandler_DeployReport(agent_cd *V1AgentCd, mani *pkgresourceapix.V1Manifest, acon *V1AgentConn) {
+func V1CdHandler_DeployReport(aidx int, mani *pkgresourceapix.V1Manifest, acon *V1AgentConn) {
+
+	v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindAgentPush, "/project/cd/log", mani)
+
+	if err != nil {
+
+		log.Printf("failed to report deploy: %s\n", err.Error())
+
+		return
+	}
+
+	v1main.Body["name"] = CD_OPTIONS_Q[aidx].ProjectName
+	v1main.Body["status"] = string(CD_OPTIONS_Q[aidx].Status)
+	v1main.Body["log"] = CD_OPTIONS_Q[aidx].Log
+
+	err = V1AgentPush(v1main, acon)
+
+	if err != nil {
+
+		log.Printf("failed to report deploy: agent push: %s", err.Error())
+	}
+
+	return
 
 }
 
@@ -441,15 +611,15 @@ func V1CiCdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 				V1CiHandler_BuildReport(i, mani, acon)
 
-				go V1CdHandler_DeployStart(CICD_PIPE_Q[i].Cd)
+				go V1CdHandler_DeployStart(i)
 
 			} else if CICD_PIPE_Q[i].Cd.Status == pkgresourcecd.STATUS_RUNNING {
 
-				V1CdHandler_DeployReport(CICD_PIPE_Q[i].Cd, mani, acon)
+				V1CdHandler_DeployReport(i, mani, acon)
 
 			} else {
 
-				V1CdHandler_DeployReport(CICD_PIPE_Q[i].Cd, mani, acon)
+				V1CdHandler_DeployReport(i, mani, acon)
 
 				term_list = append(term_list, i)
 			}
