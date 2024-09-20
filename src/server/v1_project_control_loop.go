@@ -12,6 +12,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+func V1PCTL_LifecycleRecoverByNewCdOption() error {
+
+	return nil
+}
+
 func V1PCTL_HandleCiSuccess(cioption *pkgresourceci.CiOption) error {
 
 	opt_byte := []byte{}

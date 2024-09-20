@@ -257,11 +257,11 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 
 	if status == string(pkgresourcecd.STATUS_RUNNING) || status == string(pkgresourcecd.STATUS_READY) {
 
-		err = pkgdbquery.SetProjectCiLogById(cdrecord[cdidx].ProjectCdId, cdlog)
+		err = pkgdbquery.SetProjectCdLogById(cdrecord[cdidx].ProjectCdId, cdlog)
 
 	} else if status == string(pkgresourcecd.STATUS_COMPLETED) || status == string(pkgresourcecd.STATUS_ERROR) {
 
-		err = pkgdbquery.SetProjectCiEndById(cdrecord[cdidx].ProjectCdId, status, cdlog)
+		err = pkgdbquery.SetProjectCdEndById(cdrecord[cdidx].ProjectCdId, status, cdlog)
 
 	} else {
 

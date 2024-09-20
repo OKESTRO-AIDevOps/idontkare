@@ -185,7 +185,7 @@ func SetLifecycleManifestByLifecycleId(lifecycle_id int, manifest string) error 
 		UPDATE
 			lifecycle
 		SET
-			manifest = ?
+			lifecycle_manifest = ?
 		WHERE
 			lifecycle_id = ?
 	
@@ -213,7 +213,7 @@ func SetLifecycleReportByLifecycleId(lifecycle_id int, report string) error {
 		UPDATE
 			lifecycle
 		SET
-			report = ?
+			lifecycle_report = ?
 		WHERE
 			lifecycle_id = ?
 	

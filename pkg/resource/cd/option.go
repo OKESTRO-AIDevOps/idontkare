@@ -30,8 +30,8 @@ type CdOption struct {
 }
 
 type CdOption_Request struct {
-	DependOnCI bool        `yaml:"depend_on_ci"`
-	Expose     map[int]int `yaml:"expose"`
+	DependOnCI bool              `yaml:"depend_on_ci"`
+	Expose     map[string]string `yaml:"expose"`
 }
 
 type NodePort struct {

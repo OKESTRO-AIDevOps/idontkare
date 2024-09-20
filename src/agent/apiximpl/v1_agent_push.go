@@ -485,6 +485,8 @@ func V1CdHandler_DeployStart(aidx int) {
 
 	cmd.Stderr = &errBuf
 
+	err = cmd.Run()
+
 	if err != nil {
 
 		CD_OPTIONS_Q[aidx].Log += errBuf.String()

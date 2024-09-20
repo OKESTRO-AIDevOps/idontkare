@@ -1,6 +1,6 @@
 apix_version: 1
 connect_url: "ws://localhost:1338/idontkare/agent"
-name: "testcluster"
+name: "samplecluster"
 username: "sampleusername"
 key_path: "private_key.pem"
 userpass: "sampleuserpass"
