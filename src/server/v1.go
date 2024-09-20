@@ -39,6 +39,8 @@ var agent_register = make(pkgresourceauth.AgentRegister)
 
 var agent_address_register = make(pkgresourceauth.AgentAddressRegister)
 
+var TOLERANCE_MS int = 6000000 // 1.66667 hours
+
 func V1SetApixImpl() {
 
 }
@@ -921,12 +923,104 @@ func V1ProjectControlLoop() {
 
 	for {
 
+		var LC_Q = make([]pkgresourcelc.LifecycleManifest, 0)
 		var CI_Q = make([]pkgresourceci.CiOption, 0)
 		var CD_Q = make([]pkgresourcecd.CdOption, 0)
 
 		if fail_count >= FAIL_COUNT_LIMIT {
 
 			log.Fatalf("pctl: fail_count limit exceeded: %d\n", fail_count)
+		}
+
+		// poll lifecycles
+
+		LIFECYCLES, err := pkgdbquery.GetLifecycle()
+
+		if err != nil {
+
+			log.Printf("pctl: failed to get lifecycles: %s\n", err.Error())
+
+			fail_count += 1
+
+			continue
+		}
+
+		LCLEN := len(LIFECYCLES)
+
+		LC_INDEX_ARR := make([]int, 0)
+
+		effective_cycles := make(map[int]int)
+
+		for i := 0; i < LCLEN; i++ {
+
+			pid := LIFECYCLES[i].ProjectId
+
+			lcid := LIFECYCLES[i].LifecycleId
+
+			oldlcid, okay := effective_cycles[pid]
+
+			if !okay {
+
+				effective_cycles[pid] = lcid
+
+			} else {
+
+				if lcid > oldlcid {
+
+					effective_cycles[pid] = lcid
+				}
+
+			}
+
+		}
+
+		for i := 0; i < LCLEN; i++ {
+
+			for k, v := range effective_cycles {
+
+				if LIFECYCLES[i].ProjectId == k && LIFECYCLES[i].LifecycleId == v {
+
+					LC_INDEX_ARR = append(LC_INDEX_ARR, i)
+
+					break
+				}
+
+			}
+
+		}
+
+		LCIDXLEN := len(LC_INDEX_ARR)
+
+		for i := 0; i < LCIDXLEN; i++ {
+
+			idx := LC_INDEX_ARR[i]
+
+			manifest := LIFECYCLES[idx].LifecycleManifest.String
+
+			report := LIFECYCLES[idx].LifecycleReport
+
+			start_time := LIFECYCLES[idx].LifecycleStart
+
+			if !report.Valid {
+
+				now_t := time.Now()
+
+				tdiff := now_t.Sub(start_time)
+
+				tdiff_ms := tdiff.Milliseconds()
+
+				if tdiff_ms > int64(TOLERANCE_MS) {
+
+					err := V1PCTL_LifecycleRecoverByNewCdOption()
+
+					if err != nil {
+
+					}
+
+				}
+
+			}
+
 		}
 
 		// poll project ci cd
@@ -1066,7 +1160,13 @@ func V1ProjectControlLoop() {
 
 				port_count := 0
 
-				for k, v := range cdopt.Request.Expose {
+				for kstr, vstr := range cdopt.Request.Expose {
+
+					var k int
+					var v int
+
+					fmt.Sscanf(kstr, "%d", &k)
+					fmt.Sscanf(vstr, "%d", &v)
 
 					if k > 32767 || k < 30000 {
 
@@ -1197,7 +1297,13 @@ func V1ProjectControlLoop() {
 				}
 
 				port_count := 0
-				for k, v := range cdopt.Request.Expose {
+				for kstr, vstr := range cdopt.Request.Expose {
+
+					var k int
+					var v int
+
+					fmt.Sscanf(kstr, "%d", &k)
+					fmt.Sscanf(vstr, "%d", &v)
 
 					if k > 32767 || k < 30000 {
 
@@ -1225,6 +1331,8 @@ func V1ProjectControlLoop() {
 						}
 
 					}
+
+					port_count += 1
 
 				}
 
@@ -1711,7 +1819,13 @@ func V1ProjectControlLoop() {
 
 			var container_ports = make([]pkgresourcecd.Deployment_Containers_Ports, 0)
 
-			for k, v := range cdoption.Process.StoredRequest.Expose {
+			for kstr, vstr := range cdoption.Process.StoredRequest.Expose {
+
+				var k int
+				var v int
+
+				fmt.Sscanf(kstr, "%d", &k)
+				fmt.Sscanf(vstr, "%d", &v)
 
 				service_port := pkgresourcecd.NodePort_Ports{
 					NodePort:   k,
@@ -1756,7 +1870,7 @@ func V1ProjectControlLoop() {
 			}
 
 			deployment.Kind = "Deployment"
-			deployment.APIVersion = "v1"
+			deployment.APIVersion = "apps/v1"
 			deployment.Metadata.Name = cdoption.Process.ProjectName
 			deployment.Spec.Selector.MatchLabels.App = cdoption.Process.ProjectName
 			deployment.Spec.Replicas = 1

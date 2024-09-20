@@ -42,7 +42,7 @@ cd src/client
 
 # user set
 
-./client.out user set --name test --pass test
+./client.out user set --name sampleusername --pass sampleuserpass
 
 # or use file for user set
 
@@ -55,7 +55,7 @@ pass: somethingsecret
 
 # cluster set, this will write private key pem to stdout
 
-./client.out cluster set --username test --name testcluster
+./client.out cluster set --username sampleusername --name samplecluster
 
 # project set 
 
@@ -86,6 +86,32 @@ cd src/agent
 ./agent.out
 
 ```
+
+
+## TODO
+
+
+- add lifecycle to server
+
+```shell
+    1. check lifecycle manifest at the start of the loop
+    2. for now, request will be null
+    3. get the latest lifecycle of a project
+    4. broadcast free to other clusters
+    5. push alloc to the target cluster
+
+```
+
+- add lifecycle to agent
+
+```shell
+
+    1. if free is received, check queue and remove
+    2. if alloc is received, check queue and add (or update)
+    3. meantime, handler should report according to request
+
+```
+
 
 
 ## Reference

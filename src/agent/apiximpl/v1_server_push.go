@@ -10,9 +10,6 @@ import (
 
 func V1ProjectClusterCiAlloc(projectname string, git string, gitid string, gitpw string, reg string, regid string, regpw string, cioption string) error {
 
-	// TODO:
-	//   start building
-
 	var agentCi V1AgentCi
 	var ciOption pkgresourceci.CiOption
 

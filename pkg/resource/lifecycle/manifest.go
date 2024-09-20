@@ -8,13 +8,14 @@ type LifecycleManifest struct {
 	Request *LifecycleManifest_Request `yaml:"request"`
 
 	Process struct {
-		ProjectId    int    `yaml:"project_id"`
-		ProjectName  string `yaml:"project_name"`
-		UserId       int    `yaml:"user_id"`
-		UserName     string `yaml:"user_name"`
-		ClusterId    int    `yaml:"cluster_id"`
-		ClusterName  string `yaml:"cluster_name"`
-		LifecylcleId int    `yaml:"lifecycle_id"`
+		ProjectId      int                        `yaml:"project_id"`
+		ProjectName    string                     `yaml:"project_name"`
+		UserId         int                        `yaml:"user_id"`
+		UserName       string                     `yaml:"user_name"`
+		ClusterId      int                        `yaml:"cluster_id"`
+		ClusterName    string                     `yaml:"cluster_name"`
+		LifecylcleId   int                        `yaml:"lifecycle_id"`
+		CurrentRequest *LifecycleManifest_Request `yaml:"current_request,omitempty"`
 	} `yaml:"process"`
 
 	Service *pkgresourcecd.NodePort `yaml:"service,omitempty"`

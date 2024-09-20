@@ -1,4 +1,4 @@
 request:
   depend_on_ci: false
   expose:
-    31000:8080
+    "31000": "8080"
