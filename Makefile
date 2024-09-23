@@ -1,5 +1,5 @@
 
-SERVER_HOST := localhost
+# SERVER_HOST := localhost
 CLIENT_NAME := idk-client
 
 all:
