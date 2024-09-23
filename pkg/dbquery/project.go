@@ -469,3 +469,47 @@ func SetProjectCdOptionByUserIdAndName(user_id int, name string, cd_option strin
 	return nil
 
 }
+
+func SetProjectCdOptionById(project_id int, cd_option string) error {
+
+	var q string
+
+	a := make([]any, 0)
+
+	pcheck, err := GetProjectById(project_id)
+
+	if err != nil {
+
+		return fmt.Errorf("set project cd option by id: %s", err.Error())
+
+	}
+
+	if pcheck == nil {
+
+		return fmt.Errorf("set project cd option by id: null check: %s", err.Error())
+	}
+
+	q = `
+	
+		UPDATE
+			project
+		SET
+			project_cd_option = ?
+		WHERE
+			project_id = ?
+
+	
+	`
+	a = append(a, cd_option)
+
+	a = append(a, pcheck.ProjectId)
+
+	err = DbExec(q, a)
+
+	if err != nil {
+		return fmt.Errorf("failed to set project cd option by id: %s", err.Error())
+	}
+
+	return nil
+
+}

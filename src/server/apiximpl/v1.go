@@ -174,6 +174,17 @@ func V1AgentPush(v1main *pkgresourceapix.V1Main, username string, clustername st
 			return fmt.Errorf("agent push: project cd log: %s", err.Error())
 		}
 
+	case "/project/lifecycle/report":
+
+		lc_report := v1main.Body["report"]
+
+		err := V1LifecycleReport(lc_report)
+
+		if err != nil {
+
+			return fmt.Errorf("agent push: lifecycle report: %s", err.Error())
+		}
+
 	default:
 
 		return fmt.Errorf("failed agent push: no such route: %s", route)

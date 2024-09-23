@@ -5,6 +5,8 @@ import "time"
 type LifecycleReport struct {
 	SentTimestamp     time.Time              `yaml:"sent_timestamp"`
 	ReceivedTimestamp time.Time              `yaml:"received_timestamp"`
+	Obsolete          bool                   `yaml:"obsolete"`
+	Process           LifecycleProcessInfo   `yaml:"process"`
 	Detail            *LifecycleReportDetail `yaml:"detail"`
 }
 

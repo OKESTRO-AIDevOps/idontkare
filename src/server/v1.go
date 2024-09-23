@@ -924,6 +924,7 @@ func V1ProjectControlLoop() {
 	for {
 
 		var LC_Q = make([]pkgresourcelc.LifecycleManifest, 0)
+		var LC_OBSOLETE_Q = make([]pkgresourcelc.LifecycleManifest, 0)
 		var CI_Q = make([]pkgresourceci.CiOption, 0)
 		var CD_Q = make([]pkgresourcecd.CdOption, 0)
 
@@ -948,6 +949,8 @@ func V1ProjectControlLoop() {
 		LCLEN := len(LIFECYCLES)
 
 		LC_INDEX_ARR := make([]int, 0)
+
+		LC_OBSOLETE_ARR := make([]int, 0)
 
 		effective_cycles := make(map[int]int)
 
@@ -976,15 +979,25 @@ func V1ProjectControlLoop() {
 
 		for i := 0; i < LCLEN; i++ {
 
+			hit := 0
+
 			for k, v := range effective_cycles {
 
 				if LIFECYCLES[i].ProjectId == k && LIFECYCLES[i].LifecycleId == v {
 
 					LC_INDEX_ARR = append(LC_INDEX_ARR, i)
 
+					hit = 1
+
 					break
+
 				}
 
+			}
+
+			if hit != 1 {
+
+				LC_OBSOLETE_ARR = append(LC_OBSOLETE_ARR, i)
 			}
 
 		}
@@ -993,17 +1006,33 @@ func V1ProjectControlLoop() {
 
 		for i := 0; i < LCIDXLEN; i++ {
 
+			var lc_manifest pkgresourcelc.LifecycleManifest
+
 			idx := LC_INDEX_ARR[i]
 
 			manifest := LIFECYCLES[idx].LifecycleManifest.String
 
 			report := LIFECYCLES[idx].LifecycleReport
 
-			start_time := LIFECYCLES[idx].LifecycleStart
+			manifest_b := []byte(manifest)
+
+			err := yaml.Unmarshal(manifest_b, &lc_manifest)
+
+			if err != nil {
+
+				log.Printf("pctl: failed to recover lifecycles: manifest: %s\n", err.Error())
+
+				fail_count += 1
+
+				continue
+
+			}
 
 			if !report.Valid {
 
 				now_t := time.Now()
+
+				start_time := LIFECYCLES[idx].LifecycleStart
 
 				tdiff := now_t.Sub(start_time)
 
@@ -1011,12 +1040,138 @@ func V1ProjectControlLoop() {
 
 				if tdiff_ms > int64(TOLERANCE_MS) {
 
-					err := V1PCTL_LifecycleRecoverByNewCdOption()
+					err := V1PCTL_LifecycleRecoverByNewCdOption(LIFECYCLES[idx].ProjectId)
 
 					if err != nil {
 
+						log.Printf("pctl: failed to recover lifecycles: null report: %s\n", err.Error())
+
+						fail_count += 1
+
+						continue
+
 					}
 
+					continue
+
+				} else {
+
+					LC_Q = append(LC_Q, lc_manifest)
+
+					continue
+				}
+
+			} else {
+
+				var lc_report pkgresourcelc.LifecycleReport
+
+				report_b := []byte(report.String)
+
+				err := yaml.Unmarshal(report_b, &lc_report)
+
+				if err != nil {
+
+					log.Printf("pctl: failed to unmarshal lifecycles: yaml: %s\n", err.Error())
+
+					fail_count += 1
+
+					continue
+
+				}
+
+				now_t := time.Now()
+
+				recvd_time := lc_report.ReceivedTimestamp
+
+				tdiff := now_t.Sub(recvd_time)
+
+				tdiff_ms := tdiff.Milliseconds()
+
+				if tdiff_ms > int64(TOLERANCE_MS) {
+
+					err := V1PCTL_LifecycleRecoverByNewCdOption(LIFECYCLES[idx].ProjectId)
+
+					if err != nil {
+
+						log.Printf("pctl: failed to recover lifecycles: report: %s\n", err.Error())
+
+						fail_count += 1
+
+						continue
+
+					}
+
+					continue
+
+				} else {
+
+					continue
+
+				}
+
+			}
+
+		}
+
+		LCOBSLEN := len(LC_OBSOLETE_ARR)
+
+		for i := 0; i < LCOBSLEN; i++ {
+
+			var lc_manifest pkgresourcelc.LifecycleManifest
+
+			idx := LC_OBSOLETE_ARR[i]
+
+			manifest := LIFECYCLES[idx].LifecycleManifest.String
+
+			report := LIFECYCLES[idx].LifecycleReport
+
+			manifest_b := []byte(manifest)
+
+			err := yaml.Unmarshal(manifest_b, &lc_manifest)
+
+			if err != nil {
+
+				log.Printf("pctl: failed to make lifecycle obsolete: manifest: %s\n", err.Error())
+
+				fail_count += 1
+
+				continue
+
+			}
+
+			if !report.Valid {
+
+				LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
+
+				continue
+
+			} else {
+
+				var lc_report pkgresourcelc.LifecycleReport
+
+				report_b := []byte(report.String)
+
+				err := yaml.Unmarshal(report_b, &lc_report)
+
+				if err != nil {
+
+					log.Printf("pctl: failed to make lifecycle obsolete: yaml: %s\n", err.Error())
+
+					fail_count += 1
+
+					continue
+
+				}
+
+				if lc_report.Obsolete {
+
+					continue
+
+				} else {
+
+					LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
+
+					continue
 				}
 
 			}
@@ -1460,8 +1615,145 @@ func V1ProjectControlLoop() {
 			}
 		}
 
+		LC_Q_LEN := len(LC_Q)
+		LC_OBSOLETE_Q_LEN := len(LC_OBSOLETE_Q)
+
 		CI_Q_LEN := len(CI_Q)
 		CD_Q_LEN := len(CD_Q)
+
+		// push lc
+
+		for i := 0; i < LC_Q_LEN; i++ {
+
+			manifest := LC_Q[i]
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/lifecycle/manifest/cluster/alloc", V1MANI)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting main for lc alloc")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			yb, err := yaml.Marshal(manifest)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while marshalling for lc alloc")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			v1main.Body["manifest"] = string(yb)
+
+			thisKey := manifest.Process.UserName + ":" + manifest.Process.ClusterName
+
+			thisAgent, okay := agent_register[thisKey]
+
+			if !okay {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user agent for lc alloc")
+
+				log.Printf("pctl: %s: %s\n", fmt.Sprintf("key doesn't exist: %s", thisKey), this_error.Error())
+
+				continue
+
+			}
+
+			err = apiximpl.V1ServerPush(v1main, &thisAgent)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while server push for lc alloc")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+		}
+
+		// push lc obsolete
+
+		for i := 0; i < LC_OBSOLETE_Q_LEN; i++ {
+
+			manifest := LC_Q[i]
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/lifecycle/manifest/cluster/free", V1MANI)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting main for lc free")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+			}
+
+			yb, err := yaml.Marshal(manifest)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while marshalling for lc free")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+			v1main.Body["manifest"] = string(yb)
+
+			thisKey := manifest.Process.UserName + ":" + manifest.Process.ClusterName
+
+			thisAgent, okay := agent_register[thisKey]
+
+			if !okay {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while getting user agent for lc free")
+
+				log.Printf("pctl: %s: %s\n", fmt.Sprintf("key doesn't exist: %s", thisKey), this_error.Error())
+
+				continue
+
+			}
+
+			err = apiximpl.V1ServerPush(v1main, &thisAgent)
+
+			if err != nil {
+
+				fail_count += 1
+
+				this_error := fmt.Errorf("error while server push for lc free")
+
+				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+				continue
+
+			}
+
+		}
 
 		// push ci
 

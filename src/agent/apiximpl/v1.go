@@ -1,8 +1,10 @@
 package apiximpl
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -64,11 +66,13 @@ var CI_LOCK sync.Mutex
 var CD_LOCK sync.Mutex
 var CICD_LOCK sync.Mutex
 var LC_LOCK sync.Mutex
+var LC_TERM_LOCK sync.Mutex
 
 var CI_OPTIONS_Q = make([]V1AgentCi, 0)
 var CD_OPTIONS_Q = make([]V1AgentCd, 0)
 var CICD_PIPE_Q = make([]V1AgentCiCd, 0)
 var LC_MANIFEST_Q = make([]pkgresourcelc.LifecycleManifest, 0)
+var LC_TERMINATOR_Q = make([]pkgresourcelc.LifecycleReport, 0)
 
 func V1CreateCache() error {
 
@@ -273,6 +277,28 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
 		if err != nil {
 
 			return fmt.Errorf("failed server push: cd alloc: %s", err.Error())
+		}
+
+	case "/lifecycle/manifest/cluster/alloc":
+
+		manifest := v1main.Body["manifest"]
+
+		err := V1LifecycleAlloc(manifest)
+
+		if err != nil {
+
+			return fmt.Errorf("failed server push: lifecycle alloc: %s", err.Error())
+		}
+
+	case "/lifecycle/manifest/cluster/free":
+
+		manifest := v1main.Body["manifest"]
+
+		err := V1LifecycleFree(manifest)
+
+		if err != nil {
+
+			return fmt.Errorf("failed server push: lifecycle free: %s", err.Error())
 		}
 
 	}
@@ -496,24 +522,112 @@ func V1CiCdClear(term_list []int) error {
 	return nil
 }
 
-func V1LifecycleAdd(lc_mani *pkgresourcelc.LifecycleManifest) error {
+func V1LifecycleUpdate(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 	LC_LOCK.Lock()
 
 	defer LC_LOCK.Unlock()
-	// TODO:
-	//  check if lifecycle exists
+
+	var term_idx int = -1
+
+	lclen := len(LC_MANIFEST_Q)
+
+	for i := 0; i < lclen; i++ {
+
+		if lc_mani.Process.ProjectId == LC_MANIFEST_Q[i].Process.ProjectId {
+
+			term_idx = i
+
+			break
+
+		}
+
+	}
+
+	if term_idx != -1 {
+
+		err := V1LifecycleDeleteByIndex(term_idx)
+
+		if err != nil {
+
+			return fmt.Errorf("failed to update: %s", err.Error())
+
+		}
+	}
 
 	LC_MANIFEST_Q = append(LC_MANIFEST_Q, *lc_mani)
 
 	return nil
 }
 
-func V1LifecycleClear(term_list []int) error {
+func V1LifecycleDelete(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 	LC_LOCK.Lock()
 
+	LC_TERM_LOCK.Lock()
+
 	defer LC_LOCK.Unlock()
+
+	defer LC_TERM_LOCK.Unlock()
+
+	var term_idx int = -1
+
+	lclen := len(LC_MANIFEST_Q)
+
+	outBuf := bytes.Buffer{}
+	errBuf := bytes.Buffer{}
+
+	namespace := lc_mani.Process.ProjectName
+
+	cmd := exec.Command("kubectl", "delete", "namespace", namespace)
+
+	cmd.Stdout = &outBuf
+
+	cmd.Stderr = &errBuf
+
+	err := cmd.Run()
+
+	if err != nil {
+
+		return fmt.Errorf("failed to delete project: %s: %s", namespace, errBuf.String())
+
+	}
+
+	for i := 0; i < lclen; i++ {
+
+		if lc_mani.Process.ProjectId == LC_MANIFEST_Q[i].Process.ProjectId {
+
+			term_idx = i
+
+			break
+
+		}
+
+	}
+
+	if term_idx != -1 {
+
+		err := V1LifecycleDeleteByIndex(term_idx)
+
+		if err != nil {
+
+			return fmt.Errorf("failed to delete: %s", err.Error())
+
+		}
+	}
+
+	var report pkgresourcelc.LifecycleReport
+
+	report.Obsolete = true
+	report.SentTimestamp = time.Now()
+	report.Process = lc_mani.Process
+
+	LC_TERMINATOR_Q = append(LC_TERMINATOR_Q, report)
+
+	return nil
+}
+
+func V1LifecycleDeleteByIndex(term_idx int) error {
 
 	var new_lc_q = make([]pkgresourcelc.LifecycleManifest, 0)
 
@@ -521,7 +635,7 @@ func V1LifecycleClear(term_list []int) error {
 
 	for i := 0; i < lclen; i++ {
 
-		if pkgutils.CheckIfSliceContains[int](term_list, i) {
+		if i == term_idx {
 
 			continue
 		}
