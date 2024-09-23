@@ -107,7 +107,7 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "arglen invalid: %d\n", arglen)
 
-		return
+		os.Exit(-1)
 	}
 
 	hostName := os.Args[1]
@@ -123,11 +123,11 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 
-	} else {
-
-		fmt.Fprintf(os.Stdout, "certs successfully generated for: host: %s, root: %s\n", hostName, rootName)
+		os.Exit(-1)
 
 	}
 
-	return
+	fmt.Fprintf(os.Stdout, "certs successfully generated for: host: %s, root: %s\n", hostName, rootName)
+
+	os.Exit(0)
 }

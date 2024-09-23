@@ -27,7 +27,7 @@ cd db && sudo docker compose up --build -d
 
 # build client, server
 
-make build
+make build SERVER_HOST=localhost # or whatever the domain name of yours
 
 
 # build agent 
@@ -48,12 +48,15 @@ cd src/server && ./server.out
 # kubernetes cluster in docker
 
 
-cd hack/cluster && sudo ./kindcluster.sh
+cd hack/cluster && sudo ./kindcluster.sh $USER
+
+# check if cluster is up and running
+
+kubectl get nodes
 
 # to destroy
 
 sudo kind delete cluster --name kindcluster
-
 
 ```
 
@@ -102,9 +105,10 @@ pass: somethingsecret
 
 cd src/agent
 
-# modify config.yaml accordingly
 
 # save private key content 
+
+# modify config.yaml accordingly
 
 # connect agent
 
