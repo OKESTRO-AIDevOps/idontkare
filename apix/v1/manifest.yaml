@@ -138,10 +138,8 @@ main:
     path: /project/lifecycle/report
     head:
       help:
-        name: "project name"
         report: "lifecycle report"
     body:
-      name: required
       report: required
 
   - kind: server.push
@@ -193,18 +191,14 @@ main:
     path: /lifecycle/manifest/cluster/alloc
     head:
       help:
-        name: "project name"
         manifest: "lifecycle text"
     body:
-      name: required
       manifest: required
 
   - kind: server.push
     path: /lifecycle/manifest/cluster/free
     head:
       help:
-        name: "project name"
         manifest: "lifecycle text"
     body:
-      name: required
       manifest: required

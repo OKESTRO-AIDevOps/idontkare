@@ -12,6 +12,7 @@ import (
 	pkgresourceapix "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/apix"
 	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
+	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
 	pkgutils "github.com/OKESTRO-AIDevOps/idontkare/pkg/utils"
 	"gopkg.in/yaml.v3"
 )
@@ -643,12 +644,106 @@ func V1LifecycleHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
 
+		LC_LOCK.Lock()
+
 		lclen := len(LC_MANIFEST_Q)
 
 		for i := 0; i < lclen; i++ {
 
+			lc_mani := LC_MANIFEST_Q[i]
+
+			var report pkgresourcelc.LifecycleReport
+
+			report.Obsolete = false
+			report.SentTimestamp = time.Now()
+			report.Process = lc_mani.Process
+
+			report_b, err := yaml.Marshal(report)
+
+			if err != nil {
+
+				log.Printf("failed to report lifecycle: %s\n", err.Error())
+
+				continue
+
+			}
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindAgentPush, "/project/lifecycle/report", mani)
+
+			if err != nil {
+
+				log.Printf("failed to report lifecycle: v1 main: %s\n", err.Error())
+
+				continue
+			}
+
+			v1main.Body["report"] = string(report_b)
+
+			err = V1AgentPush(v1main, acon)
+
+			if err != nil {
+
+				log.Printf("failed to report lifecycle: agent push: %s", err.Error())
+
+				continue
+
+			}
+
 		}
 
+		LC_LOCK.Unlock()
+
+	}
+
+}
+
+func V1LifecycleTerminator(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
+
+	for {
+
+		LC_TERM_LOCK.Lock()
+
+		lctermlen := len(LC_TERMINATOR_Q)
+
+		for i := 0; i < lctermlen; i++ {
+
+			report := LC_TERMINATOR_Q[i]
+
+			report_b, err := yaml.Marshal(report)
+
+			if err != nil {
+
+				log.Printf("failed to report free lc: %s\n", err.Error())
+
+				continue
+			}
+
+			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindAgentPush, "/project/lifecycle/report", mani)
+
+			if err != nil {
+
+				log.Printf("failed to report free lifecycle: v1 main: %s\n", err.Error())
+
+				continue
+			}
+
+			v1main.Body["report"] = string(report_b)
+
+			err = V1AgentPush(v1main, acon)
+
+			if err != nil {
+
+				log.Printf("failed to report free lifecycle: agent push: %s", err.Error())
+
+				continue
+
+			}
+
+		}
+
+		LC_TERMINATOR_Q = make([]pkgresourcelc.LifecycleReport, 0)
+
+		LC_TERM_LOCK.Unlock()
 	}
 
 }

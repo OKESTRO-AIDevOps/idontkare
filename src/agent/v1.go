@@ -169,6 +169,10 @@ func V1HandleAgentPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V1
 	go agentapiximpl.V1LifecycleHandler(acon, mani)
 
 	log.Printf("started lifecycle handler\n")
+
+	go agentapiximpl.V1LifecycleTerminator(acon, mani)
+
+	log.Printf("started lifecycle terminator\n")
 }
 
 func V1HandleServerPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V1Manifest) error {

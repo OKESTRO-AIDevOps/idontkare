@@ -5,6 +5,7 @@ import (
 
 	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
+	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
 	"gopkg.in/yaml.v3"
 )
 
@@ -56,9 +57,6 @@ func V1ProjectClusterCiAlloc(projectname string, git string, gitid string, gitpw
 
 func V1ProjectClusterCdAlloc(projectname string, git string, gitid string, gitpw string, reg string, regid string, regpw string, cdoption string) error {
 
-	// TODO:
-	//   start deploying
-
 	var agentCd V1AgentCd
 	var cdOption pkgresourcecd.CdOption
 
@@ -99,6 +97,48 @@ func V1ProjectClusterCdAlloc(projectname string, git string, gitid string, gitpw
 			return fmt.Errorf("failed to add cd independent of ci: %s", err.Error())
 		}
 
+	}
+
+	return nil
+}
+
+func V1LifecycleAlloc(manifest_str string) error {
+
+	var manifest pkgresourcelc.LifecycleManifest
+
+	err := yaml.Unmarshal([]byte(manifest_str), &manifest)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to unmarshal lc alloc: %s", err.Error())
+	}
+
+	err = V1LifecycleUpdate(&manifest)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to update lc: %s", err.Error())
+	}
+
+	return nil
+}
+
+func V1LifecycleFree(manifest_str string) error {
+
+	var manifest pkgresourcelc.LifecycleManifest
+
+	err := yaml.Unmarshal([]byte(manifest_str), &manifest)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to unmarshal lc alloc: %s", err.Error())
+	}
+
+	err = V1LifecycleDelete(&manifest)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to delete lc: %s", err.Error())
 	}
 
 	return nil

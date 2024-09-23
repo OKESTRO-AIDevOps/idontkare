@@ -2,10 +2,13 @@ package apiximpl
 
 import (
 	"fmt"
+	"time"
 
 	pkgdbquery "github.com/OKESTRO-AIDevOps/idontkare/pkg/dbquery"
 	pkgresourcecd "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/cd"
 	pkgresourceci "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/ci"
+	pkgresourcelc "github.com/OKESTRO-AIDevOps/idontkare/pkg/resource/lifecycle"
+	"gopkg.in/yaml.v3"
 )
 
 func V1ProjectCiLog(username string, clustername string, projectname string, status string, cilog string) error {
@@ -275,4 +278,36 @@ func V1ProjectCdLog(username string, clustername string, projectname string, sta
 
 	return nil
 
+}
+
+func V1LifecycleReport(report_str string) error {
+
+	var report pkgresourcelc.LifecycleReport
+
+	report_b := []byte(report_str)
+
+	err := yaml.Unmarshal(report_b, &report)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to unmarshal report: %s", err.Error())
+	}
+
+	report.ReceivedTimestamp = time.Now()
+
+	report_b, err = yaml.Marshal(report)
+
+	if err != nil {
+
+		return fmt.Errorf("failed to add recvd time: %s", err.Error())
+	}
+
+	err = pkgdbquery.SetLifecycleReportByLifecycleId(report.Process.LifecylcleId, string(report_b))
+
+	if err != nil {
+
+		return fmt.Errorf("failed to set lc report: %s", err.Error())
+	}
+
+	return nil
 }

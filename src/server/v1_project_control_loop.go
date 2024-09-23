@@ -12,7 +12,41 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func V1PCTL_LifecycleRecoverByNewCdOption() error {
+func V1PCTL_LifecycleRecoverByNewCdOption(project_id int) error {
+
+	var cdoption pkgresourcecd.CdOption
+
+	var new_cdoption pkgresourcecd.CdOption
+
+	project_record, err := pkgdbquery.GetProjectById(project_id)
+
+	if err != nil {
+
+		return fmt.Errorf("recover: new cd option: get project: %s", err.Error())
+	}
+
+	cdoption_b := []byte(project_record.ProjectCdOption.String)
+
+	err = yaml.Unmarshal(cdoption_b, &cdoption)
+
+	if err != nil {
+
+		return fmt.Errorf("recover: new cd option: unmarshal: %s", err.Error())
+
+	}
+
+	original_request := cdoption.Process.StoredRequest
+
+	new_cdoption.Request = &original_request
+
+	new_cdoption_b, err := yaml.Marshal(new_cdoption)
+
+	if err != nil {
+
+		return fmt.Errorf("recover: new cd option: marshal: %s", err.Error())
+	}
+
+	err = pkgdbquery.SetProjectCdOptionById(project_id, string(new_cdoption_b))
 
 	return nil
 }

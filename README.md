@@ -8,6 +8,14 @@ Now I don't care about multi-cluster Kubernetes project management, because this
 
 ## Get started
 
+### requirements
+
+- linux
+- go
+- docker
+- make
+- kind (kubernets in docker, for development)
+
 ### server start
 
 ```shell
@@ -32,6 +40,23 @@ make build-agent
 cd src/server && ./server.out
 
 ```
+
+### mock cluster for development
+
+```shell
+
+# kubernetes cluster in docker
+
+
+cd hack/cluster && sudo ./kindcluster.sh
+
+# to destroy
+
+sudo kind delete cluster --name kindcluster
+
+
+```
+
 
 ### client example
 
@@ -87,30 +112,6 @@ cd src/agent
 
 ```
 
-
-## TODO
-
-
-- add lifecycle to server
-
-```shell
-    1. check lifecycle manifest at the start of the loop
-    2. for now, request will be null
-    3. get the latest lifecycle of a project
-    4. broadcast free to other clusters
-    5. push alloc to the target cluster
-
-```
-
-- add lifecycle to agent
-
-```shell
-
-    1. if free is received, check queue and remove
-    2. if alloc is received, check queue and add (or update)
-    3. meantime, handler should report according to request
-
-```
 
 
 
