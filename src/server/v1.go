@@ -1010,6 +1010,10 @@ func V1ProjectControlLoop() {
 
 			idx := LC_INDEX_ARR[i]
 
+			if !LIFECYCLES[idx].LifecycleManifest.Valid {
+				continue
+			}
+
 			manifest := LIFECYCLES[idx].LifecycleManifest.String
 
 			report := LIFECYCLES[idx].LifecycleReport
@@ -1288,7 +1292,7 @@ func V1ProjectControlLoop() {
 
 				if cdopt.Request == nil {
 
-					log.Printf("pctl: skip: cd: already processed")
+					//log.Printf("pctl: skip: cd: already processed")
 
 					continue
 				}
@@ -1692,7 +1696,7 @@ func V1ProjectControlLoop() {
 
 		for i := 0; i < LC_OBSOLETE_Q_LEN; i++ {
 
-			manifest := LC_Q[i]
+			manifest := LC_OBSOLETE_Q[i]
 
 			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/lifecycle/manifest/cluster/free", V1MANI)
 

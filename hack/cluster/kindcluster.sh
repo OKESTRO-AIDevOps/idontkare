@@ -3,7 +3,7 @@
 if [ -z "$1" ]
 then
 
-    echo "needs USERNAME"
+    echo "needs \$USERNAME"
 
     exit 1
 
