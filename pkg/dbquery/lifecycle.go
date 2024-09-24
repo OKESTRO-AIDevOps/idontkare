@@ -131,12 +131,14 @@ func GetLifecycleRunningByProjectId(project_id int) (*pkgresourcedb.DB_Lifecycle
 
 	lclen := len(lcrecords)
 
-	if lclen != 1 {
+	if lclen == 0 {
 
-		return nil, fmt.Errorf("failed to get lifecycle running by project id: len: %s", err.Error())
+		return nil, fmt.Errorf("failed to get lifecycle running by project id: len: %s", fmt.Sprintf("%d", lclen))
 	}
 
-	lc := lcrecords[0]
+	lcidx := lclen - 1
+
+	lc := lcrecords[lcidx]
 
 	return &lc, nil
 }

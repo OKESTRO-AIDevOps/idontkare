@@ -301,6 +301,10 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
 			return fmt.Errorf("failed server push: lifecycle free: %s", err.Error())
 		}
 
+	default:
+
+		return fmt.Errorf("failed server push: no such route: %s", route)
+
 	}
 
 	return nil

@@ -240,7 +240,7 @@ func V1HandleServerPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V
 			continue
 		}
 
-		log.Printf("handled server push: %s: %s", v1main.Kind, v1main.Path)
+		//log.Printf("handled server push: %s: %s", v1main.Kind, v1main.Path)
 
 	}
 

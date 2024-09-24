@@ -22,7 +22,7 @@ Now I don't care about multi-cluster Kubernetes project management, because this
 
 # start db in container
 
-cd db && sudo docker compose up --build -d
+cd db && ./start.sh
 
 
 # build client, server
