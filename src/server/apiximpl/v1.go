@@ -205,6 +205,8 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main, agent *pkgresourceauth.AgentDa
 		return fmt.Errorf("failed server push: marshal: %s", err.Error())
 	}
 
+	log.Println(v1main.Kind + v1main.Path)
+
 	enc_b, err := comm.CommDataEncrypt(yb, []byte(agent.Key))
 
 	if err != nil {

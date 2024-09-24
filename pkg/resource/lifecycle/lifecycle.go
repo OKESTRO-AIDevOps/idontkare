@@ -2,6 +2,13 @@ package lifecycle
 
 import "time"
 
+type LifecycleStatusType string
+
+const (
+	LIFECYCLE_STATUS_OKAY  LifecycleStatusType = "okay"
+	LIFECYCLE_STATUS_ERROR LifecycleStatusType = "error"
+)
+
 type LifecycleReport struct {
 	SentTimestamp     time.Time              `yaml:"sent_timestamp"`
 	ReceivedTimestamp time.Time              `yaml:"received_timestamp"`
@@ -15,5 +22,9 @@ type LifecycleReportDetail struct {
 
 	Deployment *string `yaml:"deployment"`
 
-	Log *string `yaml:"log"`
+	AppInfo *string `yaml:"app_info"`
+
+	AppErrInfo *string `yaml:"app_err_info"`
+
+	AppStatus LifecycleStatusType `yaml:"status"`
 }

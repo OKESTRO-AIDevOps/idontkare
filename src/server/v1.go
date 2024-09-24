@@ -923,8 +923,10 @@ func V1ProjectControlLoop() {
 
 	for {
 
+		time.Sleep(time.Millisecond * 100)
+
 		var LC_Q = make([]pkgresourcelc.LifecycleManifest, 0)
-		var LC_OBSOLETE_Q = make([]pkgresourcelc.LifecycleManifest, 0)
+		//var LC_OBSOLETE_Q = make([]pkgresourcelc.LifecycleManifest, 0)
 		var CI_Q = make([]pkgresourceci.CiOption, 0)
 		var CD_Q = make([]pkgresourcecd.CdOption, 0)
 
@@ -1109,6 +1111,12 @@ func V1ProjectControlLoop() {
 
 				} else {
 
+					if lc_report.Detail.AppStatus != pkgresourcelc.LIFECYCLE_STATUS_OKAY {
+
+						LC_Q = append(LC_Q, lc_manifest)
+
+					}
+
 					continue
 
 				}
@@ -1117,49 +1125,27 @@ func V1ProjectControlLoop() {
 
 		}
 
-		LCOBSLEN := len(LC_OBSOLETE_ARR)
+		//LCOBSLEN := len(LC_OBSOLETE_ARR)
 
-		for i := 0; i < LCOBSLEN; i++ {
+		/*
 
-			var lc_manifest pkgresourcelc.LifecycleManifest
+			for i := 0; i < LCOBSLEN; i++ {
 
-			idx := LC_OBSOLETE_ARR[i]
+				var lc_manifest pkgresourcelc.LifecycleManifest
 
-			manifest := LIFECYCLES[idx].LifecycleManifest.String
+				idx := LC_OBSOLETE_ARR[i]
 
-			report := LIFECYCLES[idx].LifecycleReport
+				manifest := LIFECYCLES[idx].LifecycleManifest.String
 
-			manifest_b := []byte(manifest)
+				report := LIFECYCLES[idx].LifecycleReport
 
-			err := yaml.Unmarshal(manifest_b, &lc_manifest)
+				manifest_b := []byte(manifest)
 
-			if err != nil {
-
-				log.Printf("pctl: failed to make lifecycle obsolete: manifest: %s\n", err.Error())
-
-				fail_count += 1
-
-				continue
-
-			}
-
-			if !report.Valid {
-
-				LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
-
-				continue
-
-			} else {
-
-				var lc_report pkgresourcelc.LifecycleReport
-
-				report_b := []byte(report.String)
-
-				err := yaml.Unmarshal(report_b, &lc_report)
+				err := yaml.Unmarshal(manifest_b, &lc_manifest)
 
 				if err != nil {
 
-					log.Printf("pctl: failed to make lifecycle obsolete: yaml: %s\n", err.Error())
+					log.Printf("pctl: failed to make lifecycle obsolete: manifest: %s\n", err.Error())
 
 					fail_count += 1
 
@@ -1167,20 +1153,46 @@ func V1ProjectControlLoop() {
 
 				}
 
-				if lc_report.Obsolete {
+				if !report.Valid {
+
+					LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
 
 					continue
 
 				} else {
 
-					LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
+					var lc_report pkgresourcelc.LifecycleReport
 
-					continue
+					report_b := []byte(report.String)
+
+					err := yaml.Unmarshal(report_b, &lc_report)
+
+					if err != nil {
+
+						log.Printf("pctl: failed to make lifecycle obsolete: yaml: %s\n", err.Error())
+
+						fail_count += 1
+
+						continue
+
+					}
+
+					if lc_report.Obsolete {
+
+						continue
+
+					} else {
+
+						LC_OBSOLETE_Q = append(LC_OBSOLETE_Q, lc_manifest)
+
+						continue
+					}
+
 				}
 
 			}
 
-		}
+		*/
 
 		// poll project ci cd
 
@@ -1455,54 +1467,58 @@ func V1ProjectControlLoop() {
 					continue
 				}
 
-				port_count := 0
-				for kstr, vstr := range cdopt.Request.Expose {
+				if should_process_cd == 1 {
 
-					var k int
-					var v int
+					port_count := 0
 
-					fmt.Sscanf(kstr, "%d", &k)
-					fmt.Sscanf(vstr, "%d", &v)
+					for kstr, vstr := range cdopt.Request.Expose {
 
-					if k > 32767 || k < 30000 {
+						var k int
+						var v int
 
-						if cdopt_err != nil {
+						fmt.Sscanf(kstr, "%d", &k)
+						fmt.Sscanf(vstr, "%d", &v)
 
-							cdopt_err = fmt.Errorf("pctl: expose out of range + %s ", cdopt_err.Error())
+						if k > 32767 || k < 30000 {
 
-						} else {
+							if cdopt_err != nil {
 
-							cdopt_err = fmt.Errorf("pctl: expose out of range")
+								cdopt_err = fmt.Errorf("pctl: expose out of range + %s ", cdopt_err.Error())
 
-						}
-					}
+							} else {
 
-					if v < 1 || v > 65535 {
+								cdopt_err = fmt.Errorf("pctl: expose out of range")
 
-						if cdopt_err != nil {
-
-							cdopt_err = fmt.Errorf("pctl: invalid port value + %s ", cdopt_err.Error())
-
-						} else {
-
-							cdopt_err = fmt.Errorf("pctl: invalid port value")
-
+							}
 						}
 
+						if v < 1 || v > 65535 {
+
+							if cdopt_err != nil {
+
+								cdopt_err = fmt.Errorf("pctl: invalid port value + %s ", cdopt_err.Error())
+
+							} else {
+
+								cdopt_err = fmt.Errorf("pctl: invalid port value")
+
+							}
+
+						}
+
+						port_count += 1
+
 					}
 
-					port_count += 1
+					if port_count == 0 {
 
-				}
+						if cdopt_err != nil {
+							cdopt_err = fmt.Errorf("pctl: no port provided + %s ", cdopt_err.Error())
 
-				if port_count == 0 {
+						} else {
+							cdopt_err = fmt.Errorf("pctl: no port provided")
 
-					if cdopt_err != nil {
-						cdopt_err = fmt.Errorf("pctl: no port provided + %s ", cdopt_err.Error())
-
-					} else {
-						cdopt_err = fmt.Errorf("pctl: no port provided")
-
+						}
 					}
 				}
 
@@ -1620,7 +1636,7 @@ func V1ProjectControlLoop() {
 		}
 
 		LC_Q_LEN := len(LC_Q)
-		LC_OBSOLETE_Q_LEN := len(LC_OBSOLETE_Q)
+		//LC_OBSOLETE_Q_LEN := len(LC_OBSOLETE_Q)
 
 		CI_Q_LEN := len(CI_Q)
 		CD_Q_LEN := len(CD_Q)
@@ -1693,72 +1709,72 @@ func V1ProjectControlLoop() {
 		}
 
 		// push lc obsolete
+		/*
+			for i := 0; i < LC_OBSOLETE_Q_LEN; i++ {
 
-		for i := 0; i < LC_OBSOLETE_Q_LEN; i++ {
+				manifest := LC_OBSOLETE_Q[i]
 
-			manifest := LC_OBSOLETE_Q[i]
+				v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/lifecycle/manifest/cluster/free", V1MANI)
 
-			v1main, err := pkgapix.V1GetMainCopyByAddress(pkgresourceapix.V1KindServerPush, "/lifecycle/manifest/cluster/free", V1MANI)
+				if err != nil {
 
-			if err != nil {
+					fail_count += 1
 
-				fail_count += 1
+					this_error := fmt.Errorf("error while getting main for lc free")
 
-				this_error := fmt.Errorf("error while getting main for lc free")
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
 
-				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+					continue
+				}
 
-				continue
+				yb, err := yaml.Marshal(manifest)
+
+				if err != nil {
+
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while marshalling for lc free")
+
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+					continue
+
+				}
+
+				v1main.Body["manifest"] = string(yb)
+
+				thisKey := manifest.Process.UserName + ":" + manifest.Process.ClusterName
+
+				thisAgent, okay := agent_register[thisKey]
+
+				if !okay {
+
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while getting user agent for lc free")
+
+					log.Printf("pctl: %s: %s\n", fmt.Sprintf("key doesn't exist: %s", thisKey), this_error.Error())
+
+					continue
+
+				}
+
+				err = apiximpl.V1ServerPush(v1main, &thisAgent)
+
+				if err != nil {
+
+					fail_count += 1
+
+					this_error := fmt.Errorf("error while server push for lc free")
+
+					log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
+
+					continue
+
+				}
+
 			}
-
-			yb, err := yaml.Marshal(manifest)
-
-			if err != nil {
-
-				fail_count += 1
-
-				this_error := fmt.Errorf("error while marshalling for lc free")
-
-				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
-
-				continue
-
-			}
-
-			v1main.Body["manifest"] = string(yb)
-
-			thisKey := manifest.Process.UserName + ":" + manifest.Process.ClusterName
-
-			thisAgent, okay := agent_register[thisKey]
-
-			if !okay {
-
-				fail_count += 1
-
-				this_error := fmt.Errorf("error while getting user agent for lc free")
-
-				log.Printf("pctl: %s: %s\n", fmt.Sprintf("key doesn't exist: %s", thisKey), this_error.Error())
-
-				continue
-
-			}
-
-			err = apiximpl.V1ServerPush(v1main, &thisAgent)
-
-			if err != nil {
-
-				fail_count += 1
-
-				this_error := fmt.Errorf("error while server push for lc free")
-
-				log.Printf("pctl: %s: %s\n", err.Error(), this_error.Error())
-
-				continue
-
-			}
-
-		}
-
+		*/
 		// push ci
 
 		for i := 0; i < CI_Q_LEN; i++ {
