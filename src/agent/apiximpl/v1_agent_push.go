@@ -21,6 +21,8 @@ func V1CiHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
 
+		time.Sleep(time.Millisecond * 100)
+
 		cilen := len(CI_OPTIONS_Q)
 
 		term_list := []int{}
@@ -367,6 +369,8 @@ func V1CdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
 
+		time.Sleep(time.Millisecond * 100)
+
 		cdlen := len(CD_OPTIONS_Q)
 
 		term_list := []int{}
@@ -463,10 +467,6 @@ func V1CdHandler_DeployStart(aidx int) {
 
 		CD_OPTIONS_Q[aidx].Log += errBuf.String()
 
-		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
-
-		return
-
 	} else {
 
 		CD_OPTIONS_Q[aidx].Log += outBuf.String()
@@ -491,10 +491,6 @@ func V1CdHandler_DeployStart(aidx int) {
 	if err != nil {
 
 		CD_OPTIONS_Q[aidx].Log += errBuf.String()
-
-		CD_OPTIONS_Q[aidx].Status = pkgresourcecd.STATUS_ERROR
-
-		return
 
 	} else {
 
@@ -586,6 +582,8 @@ func V1CiCdHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
 
+		time.Sleep(time.Millisecond * 100)
+
 		pipelen := len(CICD_PIPE_Q)
 
 		term_list := []int{}
@@ -644,6 +642,8 @@ func V1LifecycleHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
 
+		time.Sleep(time.Millisecond * 100)
+
 		LC_LOCK.Lock()
 
 		lclen := len(LC_MANIFEST_Q)
@@ -657,6 +657,37 @@ func V1LifecycleHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 			report.Obsolete = false
 			report.SentTimestamp = time.Now()
 			report.Process = lc_mani.Process
+
+			outBuf := bytes.Buffer{}
+			errBuf := bytes.Buffer{}
+
+			namespace := lc_mani.Process.ProjectName
+
+			cmd := exec.Command("kubectl", "-n", namespace, "get", "pods", "-o", "yaml")
+
+			cmd.Stdout = &outBuf
+
+			cmd.Stderr = &errBuf
+
+			err := cmd.Run()
+
+			if err != nil {
+
+				errStr := errBuf.String()
+
+				report.Detail = &pkgresourcelc.LifecycleReportDetail{
+					AppStatus:  pkgresourcelc.LIFECYCLE_STATUS_ERROR,
+					AppErrInfo: &errStr,
+				}
+			} else {
+
+				outStr := outBuf.String()
+
+				report.Detail = &pkgresourcelc.LifecycleReportDetail{
+					AppStatus: pkgresourcelc.LIFECYCLE_STATUS_OKAY,
+					AppInfo:   &outStr,
+				}
+			}
 
 			report_b, err := yaml.Marshal(report)
 
@@ -700,6 +731,8 @@ func V1LifecycleHandler(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 func V1LifecycleTerminator(acon *V1AgentConn, mani *pkgresourceapix.V1Manifest) {
 
 	for {
+
+		time.Sleep(time.Millisecond * 100)
 
 		LC_TERM_LOCK.Lock()
 
