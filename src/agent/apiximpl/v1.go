@@ -3,6 +3,7 @@ package apiximpl
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -301,6 +302,10 @@ func V1ServerPush(v1main *pkgresourceapix.V1Main) error {
 			return fmt.Errorf("failed server push: lifecycle free: %s", err.Error())
 		}
 
+	default:
+
+		return fmt.Errorf("failed server push: no such route: %s", route)
+
 	}
 
 	return nil
@@ -528,13 +533,17 @@ func V1LifecycleUpdate(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 	defer LC_LOCK.Unlock()
 
+	LC_TERM_LOCK.Lock()
+
+	defer LC_TERM_LOCK.Unlock()
+
 	var term_idx int = -1
 
 	lclen := len(LC_MANIFEST_Q)
 
 	for i := 0; i < lclen; i++ {
 
-		if lc_mani.Process.ProjectId == LC_MANIFEST_Q[i].Process.ProjectId {
+		if lc_mani.Process.ProjectId == LC_MANIFEST_Q[i].Process.ProjectId && lc_mani.Process.LifecylcleId != LC_MANIFEST_Q[i].Process.LifecylcleId {
 
 			term_idx = i
 
@@ -542,9 +551,24 @@ func V1LifecycleUpdate(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 		}
 
+		if lc_mani.Process.ProjectId == LC_MANIFEST_Q[i].Process.ProjectId && lc_mani.Process.LifecylcleId != LC_MANIFEST_Q[i].Process.LifecylcleId {
+
+			return fmt.Errorf("same manifest: ignore")
+		}
+
 	}
 
 	if term_idx != -1 {
+
+		var report pkgresourcelc.LifecycleReport
+
+		term_mani := LC_MANIFEST_Q[term_idx]
+
+		report.Obsolete = true
+		report.SentTimestamp = time.Now()
+		report.Process = term_mani.Process
+
+		LC_TERMINATOR_Q = append(LC_TERMINATOR_Q, report)
 
 		err := V1LifecycleDeleteByIndex(term_idx)
 
@@ -553,6 +577,7 @@ func V1LifecycleUpdate(lc_mani *pkgresourcelc.LifecycleManifest) error {
 			return fmt.Errorf("failed to update: %s", err.Error())
 
 		}
+
 	}
 
 	LC_MANIFEST_Q = append(LC_MANIFEST_Q, *lc_mani)
@@ -589,7 +614,7 @@ func V1LifecycleDelete(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 	if err != nil {
 
-		return fmt.Errorf("failed to delete project: %s: %s", namespace, errBuf.String())
+		log.Printf("failed to delete project: %s: %s\n", namespace, errBuf.String())
 
 	}
 
@@ -611,7 +636,7 @@ func V1LifecycleDelete(lc_mani *pkgresourcelc.LifecycleManifest) error {
 
 		if err != nil {
 
-			return fmt.Errorf("failed to delete: %s", err.Error())
+			log.Printf("failed to delete: %s\n", err.Error())
 
 		}
 	}

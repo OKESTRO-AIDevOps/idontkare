@@ -216,6 +216,8 @@ func V1HandleServerPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V
 			continue
 		}
 
+		log.Println(v1main.Kind + v1main.Path)
+
 		switch v1main.Kind {
 
 		case pkgresourceapix.V1KindServerPush:
@@ -240,7 +242,7 @@ func V1HandleServerPush(acon *agentapiximpl.V1AgentConn, mani *pkgresourceapix.V
 			continue
 		}
 
-		log.Printf("handled server push: %s: %s", v1main.Kind, v1main.Path)
+		//log.Printf("handled server push: %s: %s", v1main.Kind, v1main.Path)
 
 	}
 
