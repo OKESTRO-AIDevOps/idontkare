@@ -91,6 +91,36 @@ main:
       project: required
       path: required 
 
+  - kind: client.request
+    path: /project/ci/history/get/all
+    head:
+      help:
+        username: "user name"
+        project: "project name"
+    body:
+      username: required
+      project: required
+
+  - kind: client.request
+    path: /project/cd/history/get/all
+    head:
+      help:
+        username: "user name"
+        project: "project name"
+    body:
+      username: required
+      project: required
+
+  - kind: client.request
+    path: /lifecycle/report/get/latest
+    head:
+      help:
+        username: "user name"
+        project: "project name"
+    body:
+      username: required
+      project: required
+
   - kind: agent.request.priv
     path: /cluster/connect
     head:

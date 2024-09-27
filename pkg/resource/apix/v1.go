@@ -20,6 +20,17 @@ const (
 	V1RESULT_STATUS_FAILURE V1ResultStatusType = "failure"
 )
 
+const (
+	V1RESULT_FORMAT_STRING V1ResultFormatType = "string"
+	V1RESULT_FORMAT_JSON   V1ResultFormatType = "json"
+	V1RESULT_FORMAT_YAML   V1ResultFormatType = "yaml"
+)
+
+const (
+	V1EXPORT_STRING_NULL    = "null"
+	V1EXPORT_STRING_UNKNOWN = "__unknown__"
+)
+
 type V1Manifest struct {
 	Main []V1Main `yaml:"main"`
 }
@@ -44,7 +55,10 @@ type V1Body map[string]string
 
 type V1ResultStatusType string
 
+type V1ResultFormatType string
+
 type V1ResultData struct {
 	Status V1ResultStatusType `yaml:"status,omitempty"`
+	Format V1ResultFormatType `yaml:"format,omitempty"`
 	Output string             `yaml:"output"`
 }
