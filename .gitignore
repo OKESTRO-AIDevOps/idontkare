@@ -1,3 +1,4 @@
 *.out
 *.pem
 db/data
+db/.data

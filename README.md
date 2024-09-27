@@ -16,13 +16,17 @@ Now I don't care about multi-cluster Kubernetes project management, because this
 - make
 - kind (kubernets in docker, for development)
 
-### server start
+### 1. server start
 
 ```shell
 
 # start db in container
 
-cd db && ./start.sh
+cd db && sudo docker compose up --build -d
+
+# close db 
+
+cd db && sudo docker compose down
 
 
 # build client, server
@@ -41,7 +45,7 @@ cd src/server && ./server.out
 
 ```
 
-### mock cluster for development
+### 1-a. mock cluster for development
 
 ```shell
 
@@ -61,7 +65,7 @@ sudo kind delete cluster --name kindcluster
 ```
 
 
-### client example
+### 2. set up cluster and project
 
 ```shell
 
@@ -76,10 +80,10 @@ cd src/client
 
 ./client.out user set --from-file $FILE_PATH
 
-# file content should look like this
+# for example
 
-name: something
-pass: somethingsecret
+./client.out user set --from-file ./sample/userset.yaml
+
 
 # cluster set, this will write private key pem to stdout
 
@@ -87,19 +91,18 @@ pass: somethingsecret
 
 # project set 
 
-./client.out project set --from-file $FILE_PATH
+./client.out project set --from-file ./sample/projectset.yaml
 
-# update ci option
 
-./client.out project ci option set --username sampleusername --name sampleproject --path ./sample/cioption.yaml
+# the above won't work, obviously!
+# to make it work
+# replace content properly 
 
-# update cd option
 
-./client.out project cd option set --username sampleusername --name sampleproject --path ./sample/cdoption.yaml
 
 ```
 
-### agent example
+### 3. connect cluster
 
 ```shell
 
@@ -116,7 +119,42 @@ cd src/agent
 
 ```
 
+### 4. test build and deployment
 
+
+```shell
+
+cd src/client
+
+# update ci option
+
+./client.out project ci option set --username sampleusername --name sampleproject --path ./sample/cioption.yaml
+
+# update cd option
+
+./client.out project cd option set --username sampleusername --name sampleproject --path ./sample/cdoption.yaml
+
+
+```
+
+### 5. more client requests 
+
+
+```shell
+
+# get all ci history for project
+
+./client.out project ci history get all --username sampleusername --project sampleproject
+
+# get all cd history for project
+
+./client.out project cd history get all --username sampleusername --project sampleproject
+
+# get lifecycle report for project
+
+./client.out lifecycle report get latest --username sampleusername --project sampleproject
+
+```
 
 
 ## Reference

@@ -131,6 +131,72 @@ func V1ClientRequestCtl(v1main *pkgresourceapix.V1Main) (*pkgresourceapix.V1Resu
 			resp.Output = fmt.Sprintf("successfully set project cd option: %s", projectname)
 		}
 
+	case "/project/ci/history/get/all":
+
+		username := v1main.Body["username"]
+		projectname := v1main.Body["project"]
+
+		out, err := V1ProjectCiHistoryGetAll(username, projectname)
+
+		if err != nil {
+
+			log.Printf("failed to get all project ci history: %s: %s", projectname, err.Error())
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_FAILURE
+
+			resp.Output = fmt.Sprintf("failed to get all project ci history: %s", projectname)
+
+		} else {
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_SUCCESS
+			resp.Format = pkgresourceapix.V1RESULT_FORMAT_YAML
+			resp.Output = out
+		}
+
+	case "/project/cd/history/get/all":
+
+		username := v1main.Body["username"]
+		projectname := v1main.Body["project"]
+
+		out, err := V1ProjectCdHistoryGetAll(username, projectname)
+
+		if err != nil {
+
+			log.Printf("failed to get all project cd history: %s: %s", projectname, err.Error())
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_FAILURE
+
+			resp.Output = fmt.Sprintf("failed to get all project cd history: %s", projectname)
+
+		} else {
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_SUCCESS
+			resp.Format = pkgresourceapix.V1RESULT_FORMAT_YAML
+			resp.Output = out
+		}
+
+	case "/lifecycle/report/get/latest":
+
+		username := v1main.Body["username"]
+		projectname := v1main.Body["project"]
+
+		out, err := V1LifecycleReportGetLatest(username, projectname)
+
+		if err != nil {
+
+			log.Printf("failed to get latest lifecycle report: %s: %s", projectname, err.Error())
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_FAILURE
+
+			resp.Output = fmt.Sprintf("failed to get latest lifecycle report: %s", projectname)
+
+		} else {
+
+			resp.Status = pkgresourceapix.V1RESULT_STATUS_SUCCESS
+			resp.Format = pkgresourceapix.V1RESULT_FORMAT_YAML
+			resp.Output = out
+		}
+
 	default:
 
 		resp.Status = pkgresourceapix.V1RESULT_STATUS_FAILURE
