@@ -33,6 +33,10 @@ build:
 
 	/bin/cp -Rf apix src/client
 
+	mkdir -p ../kiwi-web/cert-client
+
+	cp -Rf src/client/cert-client/* ../kiwi-web/cert-client/
+
 build-agent:
 
 	make -C src/agent clean
