@@ -31,6 +31,10 @@ build:
 
 	mv cert-client src/client
 
+	mkdir -p ../kiwi-web/cert-client
+
+	cp -R src/client/cert-client/* ../kiwi-web/cert-client/
+
 	/bin/cp -Rf apix src/client
 
 build-agent:
